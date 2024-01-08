@@ -668,10 +668,10 @@ def main_show_a_day_cartesian(o_lat_deg=Constants.OBSERVER_LAT_DEG,
 
     # Draw the title and other facts
     ttext = "Altitude of Sun vs. Time of Day."
-    w, h = draw.textsize(ttext)
-    draw.text(((W - w ) / 2, 1),
+    draw.text(((l_margin + h_points + r_margin) / 2, 1),
               ttext,
-              "black")
+              "black",
+              anchor="ma")
     draw.text((2,1),
               "Solar Twilight v%s" % TWILIGHT_VERSION,
               "black")
