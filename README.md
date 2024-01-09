@@ -44,5 +44,5 @@ Year view shows a plot where the x-axis is time of day and the y-axis is the day
 
 #### Run a day-view for observer at 42° north on January 5, 2024
 
-> python twilight.py --day-view --date 2024.01.05
+> python twilight.py --show-day --date 2024.01.05
 
