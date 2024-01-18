@@ -919,6 +919,8 @@ def main_except(argv):
         else:
             main_show_a_day_cartesian(options.o_lat, options.tilt, options.day, options.date, options.b64)
     else:
+        if options.polar:
+            raise Exception("The --polar option is valid only in --show-day day view")
         main_show_a_year(options.o_lat, options.tilt, 1, options.b64)
 
 
