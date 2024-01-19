@@ -449,9 +449,9 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     # Draw the legend
     # define legend box "lb"
     lb_top = 0
-    lb_left = 500
+    lb_left = 450
     lb_bottom = 30
-    lb_right = 1100
+    lb_right = 1050
     lb_text_margin = 1
     lb_horiz_div_height = 15
     #lb_height = lb_bottom - lb_top
