@@ -5,7 +5,7 @@
 from optparse import OptionParser
 import SolarLat
 from SolarLat import *
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import datetime
 import traceback
 import base64
@@ -481,7 +481,11 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     draw.text((lb_left + lb_text_margin + 4 * (lb_width / 12), lb_top + lb_text_margin), "twilight", "black")
     draw.text((lb_left + lb_text_margin + 8.5 * (lb_width / 12), lb_top + lb_text_margin), "light", "black")
     draw.text((lb_left + lb_text_margin + 3 * (lb_width / 12), lb_horiz_div_height + 3 * lb_text_margin),
-              " astro    naut    civil", "white")
+              " astro", "white")
+    draw.text((lb_left + lb_text_margin + 4 * (lb_width / 12), lb_horiz_div_height + 3 * lb_text_margin),
+              " naut", "white")
+    draw.text((lb_left + lb_text_margin + 5 * (lb_width / 12), lb_horiz_div_height + 3 * lb_text_margin),
+              " civil", "white")
     draw.line((lb_left, lb_horiz_div_height, lb_right, lb_horiz_div_height), "black")
     draw.line((lb_left + 3 * x_inc, lb_top, lb_left + 3 * x_inc, lb_bottom), "black")
     draw.line((lb_left + 6 * x_inc, lb_top, lb_left + 6 * x_inc, lb_bottom), "black")
