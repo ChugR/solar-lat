@@ -412,7 +412,7 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     l_margin = 30
     r_margin = 10
     t_margin = 60
-    b_margin = 10
+    b_margin = 30
     h_mag = interval_min
     h_points = (24 * 60 / interval_min) * h_mag
     v_mag = 3
@@ -495,16 +495,25 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     draw.line((lb_left + 3 * x_inc, lb_top, lb_left + 3 * x_inc, lb_bottom), "black")
     draw.line((lb_left + 6 * x_inc, lb_top, lb_left + 6 * x_inc, lb_bottom), "black")
 
-    # draw time of day across top
-    x_hr_incr = h_points / 24
-    y_st = t_margin
-    y_h = 12  # start with a longer tick mark
-    for hr in range(0, 24, 1):
-        x = l_margin + hr * x_hr_incr
-        draw.line((x, y_st, x, y_st - y_h), "black")
-        y_h ^= 8  # toggle between longer and shorter tick mark
-    for hr in range(0, 24, 2):
-        draw.text((l_margin + hr * x_hr_incr + 3 * lb_text_margin, t_margin - 12), "%d:00" % hr, "black")
+    # draw azimuth angles across bottom
+    x_deg_incr = h_points / 36
+    y_st = t_margin + v_points
+    y_h_long = 12  # longer tick mark
+    y_h_short = 4  # shorter tick mark
+    for degree in range(0, 36, 3):
+        deg = degree
+        x = l_margin + deg * x_deg_incr  # long tick
+        draw.line((x, y_st, x, y_st + y_h_long), "black")
+        x = l_margin + (deg + 1) * x_deg_incr  # short tick
+        draw.line((x, y_st, x, y_st + y_h_short), "black")
+        x = l_margin + (deg + 2) * x_deg_incr  # short tick
+        draw.line((x, y_st, x, y_st + y_h_short), "black")
+
+    for degree in range(0, 36, 3):
+        draw.text((l_margin + degree * x_deg_incr + 3 * lb_text_margin, t_margin + v_points + 4),
+                  "%d" % (degree * 10), "black")
+
+    draw.text((W / 2 - 55, y_st + 15), "Azimuth angle (degrees)", "black")
 
     # day of year down the side
     ddoy(draw, "2015.01.01", "Jan 1", l_margin, t_margin, v_mag)
