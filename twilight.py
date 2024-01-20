@@ -43,6 +43,7 @@ class DisplayState:
     strategy 3: return PIL rbg color
     """
     def __init__(self, strategy=1):
+        # ranges measured by zenith angle
         # set up daylight ranges
         self.rad_max_L6 = radians(15)
         self.rad_max_L5 = radians(30)
@@ -61,11 +62,11 @@ class DisplayState:
         self.rad_max_D2 = radians(156)
 
         # colors[] holds the set-ansi-color escape sequence
-        self.color_ansi = {"L": BColors.WHITE,
-                           "C": BColors.YELLOW,
-                           "N": BColors.MAGENTA,
-                           "A": BColors.BLUE,
-                           "D": BColors.BLACK}
+        self.color_ansi = {"L": BColors.WHITE,    # light
+                           "C": BColors.YELLOW,   # civil
+                           "N": BColors.MAGENTA,  # nautical
+                           "A": BColors.BLUE,     # astronomical
+                           "D": BColors.BLACK}    # dark
         self.color_pil = {  
                           "L6": "#FFFFFF",
                           "L5": "#F8F8F8",
@@ -100,6 +101,10 @@ class DisplayState:
         self.strategy = strategy
 
     def get_display_code(self, value_rad):
+        """
+        :param value_rad: zenith angle in radians
+        :return: display code
+        """
         return  \
                 "L6" if value_rad <= self.rad_max_L6 else \
                 "L5" if value_rad <= self.rad_max_L5 else \
@@ -493,11 +498,11 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     # draw time of day across top
     x_hr_incr = h_points / 24
     y_st = t_margin
-    y_h = 12
+    y_h = 12  # start with a longer tick mark
     for hr in range(0, 24, 1):
         x = l_margin + hr * x_hr_incr
         draw.line((x, y_st, x, y_st - y_h), "black")
-        y_h ^= 8
+        y_h ^= 8  # toggle between longer and shorter tick mark
     for hr in range(0, 24, 2):
         draw.text((l_margin + hr * x_hr_incr + 3 * lb_text_margin, t_margin - 12), "%d:00" % hr, "black")
 
