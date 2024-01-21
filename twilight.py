@@ -542,10 +542,10 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     ddoy(draw, "2015.12.01", "Dec 1", l_margin, t_margin, v_mag)
 
     # little plus signs at key day times
-    dplusses(draw, "2015.03.21", l_margin, t_margin, v_mag, h_points)
-    dplusses(draw, "2015.06.21", l_margin, t_margin, v_mag, h_points)
-    dplusses(draw, "2015.09.21", l_margin, t_margin, v_mag, h_points)
-    dplusses(draw, "2015.12.21", l_margin, t_margin, v_mag, h_points)
+    dplusses(draw, "2015.03.21", l_margin + eot_overlap, t_margin, v_mag, h_day_points)
+    dplusses(draw, "2015.06.21", l_margin + eot_overlap, t_margin, v_mag, h_day_points)
+    dplusses(draw, "2015.09.21", l_margin + eot_overlap, t_margin, v_mag, h_day_points)
+    dplusses(draw, "2015.12.21", l_margin + eot_overlap, t_margin, v_mag, h_day_points)
 
     # Spit out the image
     fname = "twilight_lat-%0.0f%s.png" % (o_lat_deg, tilt_hint)
