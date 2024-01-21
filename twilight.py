@@ -386,6 +386,8 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     # arg 1: observer's latitude [42]
     # arg 2: axial tilt [earth = 23.44]
     # arg 3: time between sample points in minutes
+    # arg 4: emit images as base64 instead of .png.
+    #        used when invoked to support a web-based scheme
     #
     # This program considers only a point on some latitude
     # on the prime meridian.
@@ -409,14 +411,23 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     solarLat = SolarLat(axial_tilt)
     ds = DisplayState(strategy=3)
     # print ("Twilight v%2.1f Observer is at %2.1f degrees north." % (TWILIGHT_VERSION, o_lat_deg))
+
+    # image layout (in pixels)
     l_margin = 30
     r_margin = 10
     t_margin = 60
     b_margin = 30
+
+    # horizontal - one pixel per minute
+    # vertical - 3 pixels per day
+    eot_overlap = 30  # 30 minutes of previous and following day required to show today due to EOT
+
     h_mag = interval_min
-    h_points = (24 * 60 / interval_min) * h_mag
     v_mag = 3
+    h_day_points = 24 * 60
+    h_points = h_day_points + (2 * eot_overlap)
     v_points = 365 * v_mag
+
     W = l_margin + h_points + r_margin
     H = t_margin + v_points + b_margin
 
@@ -431,7 +442,7 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
         compute_half_day(day, o_colat_rad, solarLat, 12*60, interval_min, as_pm)
 
         y_orig = t_margin + (day * v_mag)
-        x_work = l_margin
+        x_work = l_margin + eot_overlap
         for s in ["D3", "D2", "D1", "A", "N", "C", "L1", "L2", "L3", "L4", "L5", "L6"]:
             n = as_am.counts[s]
             if n > 0:
@@ -454,9 +465,9 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     # Draw the legend
     # define legend box "lb"
     lb_top = 0
-    lb_left = 450
+    lb_left = 480
     lb_bottom = 30
-    lb_right = 1050
+    lb_right = 1080
     lb_text_margin = 1
     lb_horiz_div_height = 15
     #lb_height = lb_bottom - lb_top
@@ -496,21 +507,22 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     draw.line((lb_left + 6 * x_inc, lb_top, lb_left + 6 * x_inc, lb_bottom), "black")
 
     # draw azimuth angles across bottom
-    x_deg_incr = h_points / 36
+    x_st = l_margin + eot_overlap
+    x_deg_incr = h_day_points / 36
     y_st = t_margin + v_points
     y_h_long = 12  # longer tick mark
     y_h_short = 4  # shorter tick mark
     for degree in range(0, 36, 3):
         deg = degree
-        x = l_margin + deg * x_deg_incr  # long tick
+        x = x_st + deg * x_deg_incr  # long tick
         draw.line((x, y_st, x, y_st + y_h_long), "black")
-        x = l_margin + (deg + 1) * x_deg_incr  # short tick
+        x = x_st + (deg + 1) * x_deg_incr  # short tick
         draw.line((x, y_st, x, y_st + y_h_short), "black")
-        x = l_margin + (deg + 2) * x_deg_incr  # short tick
+        x = x_st + (deg + 2) * x_deg_incr  # short tick
         draw.line((x, y_st, x, y_st + y_h_short), "black")
 
     for degree in range(0, 36, 3):
-        draw.text((l_margin + degree * x_deg_incr + 3 * lb_text_margin, t_margin + v_points + 4),
+        draw.text((x_st + degree * x_deg_incr + 3 * lb_text_margin, t_margin + v_points + 4),
                   "%d" % (degree * 10), "black")
 
     draw.text((W / 2 - 55, y_st + 15), "Azimuth angle (degrees)", "black")
