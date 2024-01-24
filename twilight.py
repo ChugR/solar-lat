@@ -10,8 +10,9 @@ import datetime
 import traceback
 import base64
 import io
+import SG_sunpos_ultimate_azi_atan2 as SG
 
-TWILIGHT_VERSION = 1.5
+TWILIGHT_VERSION = 2.0
 
 
 class Constants:
@@ -373,20 +374,18 @@ def image_output(image, fname, b64):
 
 
 def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
-                     axial_tilt=Constants.OBLIQUITY,
                      interval_min=1,
                      b64=False):
     #
-    # mission code
+    # mission code showing 2019
     #
     # Display as:
     #   .png file
     #
     # Settings for this run
     # arg 1: observer's latitude [42]
-    # arg 2: axial tilt [earth = 23.44]
-    # arg 3: time between sample points in minutes
-    # arg 4: emit images as base64 instead of .png.
+    # arg 2: time between sample points in minutes
+    # arg 3: emit images as base64 instead of .png.
     #        used when invoked to support a web-based scheme
     #
     # This program considers only a point on some latitude
@@ -403,14 +402,13 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     # adjust the "10.0" magic constant in lat_of_day.
     #
 
-    tilt_hint = "_tilt-%0.0f" % axial_tilt
-    tilt_legend = ", axial tilt: %0.1f" % axial_tilt
-
     # The run
     o_colat_rad = radians(90 - o_lat_deg)
-    solarLat = SolarLat(axial_tilt)
     ds = DisplayState(strategy=3)
     # print ("Twilight v%2.1f Observer is at %2.1f degrees north." % (TWILIGHT_VERSION, o_lat_deg))
+
+    # observer location
+    o_lon_deg = 0.0  # prime meridian
 
     # image layout (in pixels)
     l_margin = 30
@@ -431,28 +429,63 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     W = l_margin + h_points + r_margin
     H = t_margin + v_points + b_margin
 
+    TOD_grid_color = "green"
+
+    y_h_long = 12  # longer tick mark
+    y_h_short = 4  # shorter tick mark
+
+    # The PIL image and draw canvas
     img = Image.new("RGB", (int(W), int(H)), "white")
     draw = ImageDraw.Draw(img)
 
-    # Draw the main diagram
-    for day in range(0, 365):
-        as_am = AccumulateState()
-        compute_half_day(day, o_colat_rad, solarLat, 00*60, interval_min, as_am)
-        as_pm = AccumulateState()
-        compute_half_day(day, o_colat_rad, solarLat, 12*60, interval_min, as_pm)
+    # Display state for colorizing
+    DS = DisplayState()
 
-        y_orig = t_margin + (day * v_mag)
-        x_work = l_margin + eot_overlap
-        for s in ["D3", "D2", "D1", "A", "N", "C", "L1", "L2", "L3", "L4", "L5", "L6"]:
-            n = as_am.counts[s]
-            if n > 0:
-                draw.rectangle([(x_work, y_orig), (x_work + n * h_mag, y_orig + v_mag)], fill=ds.color_pil[s])
-                x_work += n * h_mag
-        for s in ["L6", "L5", "L4", "L3", "L2", "L1", "C", "N", "A", "D1", "D2", "D3"]:
-            n = as_pm.counts[s]
-            if n > 0:
-                draw.rectangle([(x_work, y_orig), (x_work + n * h_mag, y_orig + v_mag)], fill=ds.color_pil[s])
-                x_work += n * h_mag
+    pi, rpd, dpr = SG.constants()
+
+    # Draw the main diagram
+    base_dt = datetime.datetime(2019, 1, 1)
+    for pday in range(0, 365):  # 365):
+        pass
+        for phour in range(0, 24):
+            for pmin in range(0, 60):
+                td_minute = datetime.timedelta(days=pday, hours=phour, minutes=pmin)
+                date = base_dt + td_minute
+                sun_zenith_degrees, sun_azimuth_degrees, sun_lat, sun_lon, esd, eot= \
+                    SG.solar_geometry(date, o_lat_deg, o_lon_deg)
+
+                def minute_slot_of_azimuth(az_deg: float) -> int:
+                    return int(round(az_deg * 1440.0 / 360.0))
+
+                if date.month == 11 and date.day == 15 and date.hour == 23 and date.minute == 40:
+                    pass
+
+                # compute minute slot in plot for this minute's data
+                # disambiguate sun azimuth degrees
+                if phour == 0 and pmin < 30 and sun_azimuth_degrees < 0.0:
+                    # Sun slow, bleed left into yesterday's sky space
+                    bleed = minute_slot_of_azimuth(sun_azimuth_degrees)
+                    slot = eot_overlap + bleed
+                elif phour == 23 and pmin > 15 and sun_azimuth_degrees > 0.0:
+                    bleed = minute_slot_of_azimuth(sun_azimuth_degrees)
+                    slot = eot_overlap + h_day_points + bleed
+                else:
+                    slot = eot_overlap + minute_slot_of_azimuth(sun_azimuth_degrees % 360.0)
+
+                # print("%s as_deg=%7.2f slot=%d" % (date, sun_azimuth_degrees, slot))
+                # plot this minute's data
+                y_orig = t_margin + (pday * v_mag)
+                if pmin == 0:
+                    # draw top axis labels and/or hour plot grid
+                    if pday == 0:
+                        draw.line((l_margin + slot, t_margin - y_h_long, l_margin + slot, t_margin), TOD_grid_color)
+                        draw.text((l_margin + slot + 2, t_margin - y_h_long), "%02d:00" % phour, TOD_grid_color)
+                    else:
+                        draw.line((l_margin + slot, y_orig, l_margin + slot, y_orig + v_mag), TOD_grid_color)
+                else:
+                    sza_rad = sun_zenith_degrees * rpd
+                    dc = DS.get_display_code(sza_rad)
+                    draw.line((l_margin + slot, y_orig, l_margin + slot, y_orig + v_mag), DS.color_pil[dc])
 
     # Draw the title and facts
     draw.text((2,2),
@@ -510,8 +543,6 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     x_st = l_margin + eot_overlap
     x_deg_incr = h_day_points / 36
     y_st = t_margin + v_points
-    y_h_long = 12  # longer tick mark
-    y_h_short = 4  # shorter tick mark
     for degree in range(0, 36, 3):
         deg = degree
         x = x_st + deg * x_deg_incr  # long tick
@@ -548,7 +579,7 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     dplusses(draw, "2015.12.21", l_margin + eot_overlap, t_margin, v_mag, h_day_points)
 
     # Spit out the image
-    fname = "twilight_lat-%0.0f%s.png" % (o_lat_deg, tilt_hint)
+    fname = "twilight_year.png"
     image_output(img, fname, b64)
     return 0
 
@@ -951,7 +982,7 @@ def main_except(argv):
     else:
         if options.polar:
             raise Exception("The --polar option is valid only in --show-day day view")
-        main_show_a_year(options.o_lat, options.tilt, 1, options.b64)
+        main_show_a_year(options.o_lat, 1, options.b64)
 
 
 def main(argv):
