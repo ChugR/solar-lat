@@ -410,6 +410,10 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     # observer location
     o_lon_deg = 0.0  # prime meridian
 
+    # Equation of Time maximum is ~17 minutes
+    # This translates into ~40 minute-slots of azimuth
+    MAX_EOT = 58
+
     # image layout (in pixels)
     l_margin = 30
     r_margin = 10
@@ -418,7 +422,7 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
 
     # horizontal - one pixel per minute
     # vertical - 3 pixels per day
-    eot_overlap = 30  # 30 minutes of previous and following day required to show today due to EOT
+    eot_overlap = MAX_EOT  # minutes of previous and following day required to show today due to EOT
 
     h_mag = interval_min
     v_mag = 3
@@ -444,48 +448,111 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     pi, rpd, dpr = SG.constants()
 
     # Draw the main diagram
-    base_dt = datetime.datetime(2019, 1, 1)
-    for pday in range(0, 365):  # 365):
-        pass
+    # Time base for the year and
+    working_dt = datetime.datetime(2019, 1, 1)
+    td_minute = datetime.timedelta(minutes=1)
+    for pday in range(0, 365):
+        # For one day accumulate:
+        #  * display slots for whole hour grid
+        #  * per-minute sun azimuth values in computed slot
+        slots_of_hours = [0] * 25  # 0..24 inclusive
+        slots_of_zenith = [0.0] * h_points  # raw sun_zenith_degrees values
+        slots_of_colors = ["XX"] * h_points  # zenith degrees converted to display color
+        slot_min = h_points  # leftmost slot with real data in it
+        slot_last = 0  # rightmost slot used for time line. 24:00 is one beyond last used
+
         for phour in range(0, 24):
             for pmin in range(0, 60):
-                td_minute = datetime.timedelta(days=pday, hours=phour, minutes=pmin)
-                date = base_dt + td_minute
-                sun_zenith_degrees, sun_azimuth_degrees, sun_lat, sun_lon, esd, eot= \
-                    SG.solar_geometry(date, o_lat_deg, o_lon_deg)
+                # breakpoint here for fun and profit
+                if working_dt.month == 4 and working_dt.day == 20 and working_dt.hour == 0 and working_dt.minute == 0:
+                   pass
+
+                # The important equation computed for this minute
+                sun_zenith_degrees, sun_azimuth_degrees, sun_lat, sun_lon, esd, eot = \
+                    SG.solar_geometry(working_dt, o_lat_deg, o_lon_deg)
+                working_dt += td_minute
 
                 def minute_slot_of_azimuth(az_deg: float) -> int:
                     return int(round(az_deg * 1440.0 / 360.0))
 
-                if date.month == 11 and date.day == 15 and date.hour == 23 and date.minute == 40:
-                    pass
-
                 # compute minute slot in plot for this minute's data
                 # disambiguate sun azimuth degrees
-                if phour == 0 and pmin < 30 and sun_azimuth_degrees < 0.0:
+                if phour == 0 and pmin < MAX_EOT and sun_azimuth_degrees < 0.0:
                     # Sun slow, bleed left into yesterday's sky space
                     bleed = minute_slot_of_azimuth(sun_azimuth_degrees)
                     slot = eot_overlap + bleed
-                elif phour == 23 and pmin > 15 and sun_azimuth_degrees > 0.0:
+                elif phour == 23 and pmin > (60 - MAX_EOT) and sun_azimuth_degrees > 0.0:
+                    # Sun fast, bleed right into tomorrow's sky space
                     bleed = minute_slot_of_azimuth(sun_azimuth_degrees)
                     slot = eot_overlap + h_day_points + bleed
+                    if slot < 0 or slot >= h_points:
+                        pass
                 else:
+                    #
                     slot = eot_overlap + minute_slot_of_azimuth(sun_azimuth_degrees % 360.0)
 
-                # print("%s as_deg=%7.2f slot=%d" % (date, sun_azimuth_degrees, slot))
-                # plot this minute's data
-                y_orig = t_margin + (pday * v_mag)
+                # Accumulate this minute
                 if pmin == 0:
-                    # draw top axis labels and/or hour plot grid
-                    if pday == 0:
-                        draw.line((l_margin + slot, t_margin - y_h_long, l_margin + slot, t_margin), TOD_grid_color)
-                        draw.text((l_margin + slot + 2, t_margin - y_h_long), "%02d:00" % phour, TOD_grid_color)
-                    else:
-                        draw.line((l_margin + slot, y_orig, l_margin + slot, y_orig + v_mag), TOD_grid_color)
+                    slots_of_hours[phour] = slot  # this hour started in this slot
+                if slot < 0 or slot >= h_points:
+                    pass  # out of range
+                if slot < slot_last:
+                    pass  # slots are supposed to increase
+                slots_of_zenith[slot] = sun_zenith_degrees
+                slot_min = slot if slot < slot_min else slot_min
+                slot_last = slot
+        slots_of_hours[24] = slot_last + 1  # for drawing time line down right side of diagram
+
+        # One day has accumulated.
+
+        # Go through the azimuth slots and cover any slots with no data in them.
+        # One-minute cadence may produce azimuth vales that skip over some slots and leaving
+        # those slots blank produces some bad plot images.
+        assert len([x for x in slots_of_zenith[:slot_min] if x > 0.0]) == 0, \
+            f"expected no slots before slot_min to have data"
+        assert slots_of_zenith[slot_min] > 0.0, f"expected slot_min slot to have an azimuth angle > 0"
+        a = slots_of_zenith[slot_last + 1:]
+        b = [x for x in a if x > 0.0]
+        if len(b) > 0:
+            pass
+        assert len([x for x in slots_of_zenith[slot_last + 1:] if x > 0.0]) == 0, \
+                   f"expected no slots after slot_last to have data"
+        for slot in range(slot_min, slot_last):
+            if slots_of_zenith[slot + 1] == 0.0:
+                # simple forward propagation of previous slot is adequate for this application
+                slots_of_zenith[slot + 1] = slots_of_zenith[slot]
+
+        # Convert slot zenith values to color values
+        for slot in range(slot_min, slot_last):
+            sza_rad = slots_of_zenith[slot] * rpd
+            dc = DS.get_display_code(sza_rad)
+            slots_of_colors[slot] = DS.color_pil[dc]
+
+        # Accumulate adjacent color blocks and render them as rectangles
+        y_orig = t_margin + (pday * v_mag)
+        slot = slot_min
+        while slot < slot_last:
+            current_x = l_margin + slot
+            current_color = slots_of_colors[slot]
+            n = 1
+            for idx in range(slot + 1, slot_last):
+                if slots_of_colors[idx] != current_color:
+                    break
+                n += 1
+            draw.rectangle((current_x, y_orig, current_x + n * h_mag, y_orig + v_mag), fill=current_color)
+            slot += n
+
+        # Draw TOD vertical color grid and top X axis labels
+        for hour in range(25):
+            slot = slots_of_hours[hour]
+            if pday == 0:
+                if hour % 2 == 0:
+                    draw.line((l_margin + slot, t_margin - y_h_long, l_margin + slot, t_margin), TOD_grid_color)
+                    draw.text((l_margin + slot + 2, t_margin - y_h_long), "%02d:00" % hour, TOD_grid_color)
                 else:
-                    sza_rad = sun_zenith_degrees * rpd
-                    dc = DS.get_display_code(sza_rad)
-                    draw.line((l_margin + slot, y_orig, l_margin + slot, y_orig + v_mag), DS.color_pil[dc])
+                    draw.line((l_margin + slot, t_margin - y_h_short, l_margin + slot, t_margin), TOD_grid_color)
+            else:
+                draw.line((l_margin + slot, y_orig, l_margin + slot, y_orig + v_mag), TOD_grid_color)
 
     # Draw the title and facts
     draw.text((2,2),
