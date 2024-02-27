@@ -1,4 +1,6 @@
-# 2021-04-14 # Solar Geometry using subsolar point and atan2 by Bradley Macpherson.
+# 2021-04-14 # Solar Geometry using subsolar point and atan2
+# See: https://www.sciencedirect.com/science/article/pii/S0960148121004031
+# Algorithms/implementations: Taiping Zhang, Paul W. Stackhouse Jr., Bradley Macpherson, J. Colleen Mikovitz
 
 import math
 

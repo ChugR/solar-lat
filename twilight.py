@@ -5,13 +5,14 @@
 from optparse import OptionParser
 import SolarLat
 from SolarLat import *
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import datetime
 import traceback
 import base64
 import io
+import SG_sunpos_ultimate_azi_atan2 as SG
 
-TWILIGHT_VERSION = 1.5
+TWILIGHT_VERSION = 2.0
 
 
 class Constants:
@@ -43,6 +44,7 @@ class DisplayState:
     strategy 3: return PIL rbg color
     """
     def __init__(self, strategy=1):
+        # ranges measured by zenith angle
         # set up daylight ranges
         self.rad_max_L6 = radians(15)
         self.rad_max_L5 = radians(30)
@@ -60,12 +62,15 @@ class DisplayState:
         self.rad_max_D1 = radians(132)
         self.rad_max_D2 = radians(156)
 
+        # zenith angles defining ranges as observer +/- elevation angles in degrees
+        self.elevations_in_deg = [-90, -66, -42, -18, -12, -6, 0, 15, 30, 45, 60, 75, 90]
+
         # colors[] holds the set-ansi-color escape sequence
-        self.color_ansi = {"L": BColors.WHITE,
-                           "C": BColors.YELLOW,
-                           "N": BColors.MAGENTA,
-                           "A": BColors.BLUE,
-                           "D": BColors.BLACK}
+        self.color_ansi = {"L": BColors.WHITE,    # light
+                           "C": BColors.YELLOW,   # civil
+                           "N": BColors.MAGENTA,  # nautical
+                           "A": BColors.BLUE,     # astronomical
+                           "D": BColors.BLACK}    # dark
         self.color_pil = {  
                           "L6": "#FFFFFF",
                           "L5": "#F8F8F8",
@@ -99,19 +104,23 @@ class DisplayState:
         # pick a display strategy
         self.strategy = strategy
 
-    def get_display_code(self, value_rad):
+    def get_display_code(self, zenith_angle_rad):
+        """
+        :param zenith_angle_rad: zenith angle in radians
+        :return: display code
+        """
         return  \
-                "L6" if value_rad <= self.rad_max_L6 else \
-                "L5" if value_rad <= self.rad_max_L5 else \
-                "L4" if value_rad <= self.rad_max_L4 else \
-                "L3" if value_rad <= self.rad_max_L3 else \
-                "L2" if value_rad <= self.rad_max_L2 else \
-                "L1" if value_rad <= self.rad_max_L1 else \
-                "C" if value_rad <= self.rad_max_civil else \
-                "N" if value_rad <= self.rad_max_nautical else \
-                "A" if value_rad <= self.rad_max_astronomical else \
-                "D1" if value_rad <= self.rad_max_D1 else \
-                "D2" if value_rad <= self.rad_max_D2 else \
+                "L6" if zenith_angle_rad <= self.rad_max_L6 else \
+                "L5" if zenith_angle_rad <= self.rad_max_L5 else \
+                "L4" if zenith_angle_rad <= self.rad_max_L4 else \
+                "L3" if zenith_angle_rad <= self.rad_max_L3 else \
+                "L2" if zenith_angle_rad <= self.rad_max_L2 else \
+                "L1" if zenith_angle_rad <= self.rad_max_L1 else \
+                "C" if zenith_angle_rad <= self.rad_max_civil else \
+                "N" if zenith_angle_rad <= self.rad_max_nautical else \
+                "A" if zenith_angle_rad <= self.rad_max_astronomical else \
+                "D1" if zenith_angle_rad <= self.rad_max_D1 else \
+                "D2" if zenith_angle_rad <= self.rad_max_D2 else \
                 "D3"
 
     def get_display(self, value_rad):
@@ -250,16 +259,18 @@ def get_date_of_doy(doy):
     return res
 
 
-def ddoy(draw, doy_string, doy_text, l_margin, t_margin, v_mag):
+def ddoy(draw, doy_string, doy_text, l_margin, t_margin, v_mag, width, grid_color):
     """
     Given a day-of-year string for a non-leap year
     Draw the doy_text and a tick mark in the left margin.
-    :param draw:
-    :param doy_string:
-    :param doy_text:
-    :param l_margin:
-    :param t_margin:
-    :param v_mag:
+    :param draw       :
+    :param doy_string :
+    :param doy_text   :
+    :param l_margin   :
+    :param t_margin   :
+    :param v_mag      :
+    :param width      : plot diagram pixel width
+    :param grid_color : draw this color line across plot diagram
     :return:
     """
     doy = get_doy(doy_string)
@@ -267,7 +278,12 @@ def ddoy(draw, doy_string, doy_text, l_margin, t_margin, v_mag):
     x_e = l_margin
     y = t_margin + doy * v_mag
     draw.line((x_o, y, x_e, y), "black")
-    draw.text((x_o + 1, y + 1), doy_text, "black")
+    # drawing the grid_color (green) grosses out the diagram
+    # soften it up a little drawing only some pixels
+    for x_o in range(l_margin, l_margin + width, 8):
+        x_e = x_o + 1
+        draw.line((x_o, y, x_e, y), grid_color)
+    draw.text((1, y + 1), doy_text, "black")
     return
 
 
@@ -368,148 +384,221 @@ def image_output(image, fname, b64):
 
 
 def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
-                     axial_tilt=Constants.OBLIQUITY,
                      interval_min=1,
                      b64=False):
     #
     # mission code
+    # Show 2019 ephemeris data
     #
     # Display as:
     #   .png file
     #
     # Settings for this run
     # arg 1: observer's latitude [42]
-    # arg 2: axial tilt [earth = 23.44]
-    # arg 3: time between sample points in minutes
+    # arg 2: time between sample points in minutes
+    # arg 3: emit images as base64 instead of png in order to
+    #        support a web-based scheme
     #
-    # This program considers only a point on some latitude
-    # on the prime meridian.
-    #
-    # Time of day 0 = midnight in Greenwich.
-    # Since the day is (should be) a floating point number,
-    # the time of day goes from 00:00:00.00 (HH.MM.SS.xx)
-    # to 23:59:59.99. The "N" sent to the SolarLat goes
-    # from day N.0 to N.999 proportionally.
-    #
-    # The day number goes from 0..364. The "normal"  reference to
-    # days goes from 1..365. If you use 1..365 then you have to
-    # adjust the "10.0" magic constant in lat_of_day.
+    # This program considers only a point at some latitude on the prime meridian north of the equator.
+    # South of the equator might work, but it hasn't been tested.
+    # There is no compensation for the fairly simple longitude correction where the longitude is
+    # not centered on the local time zone. Also, there is no accommodation for daylight savings time that
+    # shifts the plot by political DST rules.
     #
 
-    tilt_hint = "_tilt-%0.0f" % axial_tilt
-    tilt_legend = ", axial tilt: %0.1f" % axial_tilt
-
-    # The run
+    # observer location
     o_colat_rad = radians(90 - o_lat_deg)
-    solarLat = SolarLat(axial_tilt)
+    o_lon_deg = 0.0  # prime meridian
+
     ds = DisplayState(strategy=3)
     # print ("Twilight v%2.1f Observer is at %2.1f degrees north." % (TWILIGHT_VERSION, o_lat_deg))
+
+    # image layout (in pixels)
     l_margin = 30
     r_margin = 10
-    t_margin = 60
+    t_margin = 75
     b_margin = 10
-    h_mag = interval_min
-    h_points = (24 * 60 / interval_min) * h_mag
+
+    # horizontal - one pixel per minute
+    # vertical   - 3 pixels per day
+    h_mag = 1
     v_mag = 3
+
+    # gross generalizations: 24 hr/day, 60 min/hr, 365 day/year
+    h_points = 24 * 60
     v_points = 365 * v_mag
+
     W = l_margin + h_points + r_margin
     H = t_margin + v_points + b_margin
 
+    # helpful grid lines
+    grid_color = "green"
+
+    # The PIL and draw canvas
     img = Image.new("RGB", (int(W), int(H)), "white")
     draw = ImageDraw.Draw(img)
 
     # Draw the main diagram
-    for day in range(0, 365):
-        as_am = AccumulateState()
-        compute_half_day(day, o_colat_rad, solarLat, 00*60, interval_min, as_am)
-        as_pm = AccumulateState()
-        compute_half_day(day, o_colat_rad, solarLat, 12*60, interval_min, as_pm)
+    base_dt = datetime.datetime(2019, 1, 1)
+    working_y = t_margin - v_mag
+    for pday in range(0, 365):
+        working_y += v_mag
+        working_x = l_margin - h_mag
+        for phour in range(0, 24):
+            for pmin in range(0, 60):
+                working_x += h_mag
+                td_minute = datetime.timedelta(days=pday, hours=phour, minutes=pmin)
+                date = base_dt + td_minute
+                sun_zenith_degrees, sun_azimuth_degrees, sun_lat, sun_lon, esd, eot = \
+                    SG.solar_geometry(date, o_lat_deg, o_lon_deg)
+                color = ds.get_display(radians(sun_zenith_degrees))
+                #  print((working_x, working_y, working_x + h_mag, working_y + v_mag), color)
+                # TODO: aggregate smaller rectangles into one draw operation
+                draw.rectangle((working_x, working_y, working_x + h_mag, working_y + v_mag), color)
 
-        y_orig = t_margin + (day * v_mag)
-        x_work = l_margin
-        for s in ["D3", "D2", "D1", "A", "N", "C", "L1", "L2", "L3", "L4", "L5", "L6"]:
-            n = as_am.counts[s]
-            if n > 0:
-                draw.rectangle([(x_work, y_orig), (x_work + n * h_mag, y_orig + v_mag)], fill=ds.color_pil[s])
-                x_work += n * h_mag
-        for s in ["L6", "L5", "L4", "L3", "L2", "L1", "C", "N", "A", "D1", "D2", "D3"]:
-            n = as_pm.counts[s]
-            if n > 0:
-                draw.rectangle([(x_work, y_orig), (x_work + n * h_mag, y_orig + v_mag)], fill=ds.color_pil[s])
-                x_work += n * h_mag
-
-    # Draw the title and facts
-    draw.text((2,2),
-              "SolarTwilight v%s            Altitude of Sun during a year" % TWILIGHT_VERSION,
+    # Draw the plot title
+    title_y1 = 2
+    title_y2 = title_y1 + (1 * 12)
+    title_y3 = title_y1 + (2 * 12)
+    draw.text((2,title_y1),
+              "Solar twilight - year view",
               "black")
-    draw.text((2,14),
+    draw.text((2,title_y2),
+              "Altitude of sun - colors indicate height of sun above or below horizon",
+              "black")
+    draw.text((2,title_y3),
               "Observer latitude: %0.1f" % o_lat_deg,
+              "black")
+
+    # Draw source facts
+    source_info_x = W - 230
+    source_info_x2 = W - 190
+    draw.text((source_info_x, title_y1),
+              "project:",
+              "black")
+    draw.text((source_info_x2, title_y1),
+              "https://github.com/ChugR/solar-lat",
+              "black")
+    draw.text((source_info_x, title_y2),
+              "file:",
+              "black")
+    draw.text((source_info_x2, title_y2),
+              "twilight.py",
+              "black")
+    draw.text((source_info_x, title_y3),
+              "version:",
+              "black")
+    draw.text((source_info_x2, title_y3),
+              "%s" % TWILIGHT_VERSION,
               "black")
 
     # Draw the legend
     # define legend box "lb"
     lb_top = 0
-    lb_left = 500
-    lb_bottom = 30
-    lb_right = 1100
-    lb_text_margin = 1
-    lb_horiz_div_height = 15
-    #lb_height = lb_bottom - lb_top
+    lb_left = 450
+    lb_width = 600  # better if divisible by 12
+
+    lb_n_color_boxes = 12
+
+    # legend box has [text divisions; colors; altitude in degrees]
+    lb_horizontal_div_height = 15
+    lb_horizontal_divs = 3
+    lb_height = lb_horizontal_div_height * lb_horizontal_divs
+
+    lb_bottom = lb_top + lb_height
+    lb_right = lb_left + lb_width
+
+    lb_text_margin = 2
     lb_width = lb_right - lb_left
 
-    # draw the legend color boxes
-    # this could stand some refactoring
-    x = lb_left
-    y = lb_horiz_div_height
-    x_inc = lb_width / 12
-    draw.rectangle([(x + 0 * x_inc, y), (x + 1 * x_inc, lb_bottom)], fill=ds.color_pil['D3'])
-    draw.rectangle([(x + 1 * x_inc, y), (x + 2 * x_inc, lb_bottom)], fill=ds.color_pil['D2'])
-    draw.rectangle([(x + 2 * x_inc, y), (x + 3 * x_inc, lb_bottom)], fill=ds.color_pil['D1'])
-    draw.rectangle([(x + 3 * x_inc, y), (x + 4 * x_inc, lb_bottom)], fill=ds.color_pil['A'])
-    draw.rectangle([(x + 4 * x_inc, y), (x + 5 * x_inc, lb_bottom)], fill=ds.color_pil['N'])
-    draw.rectangle([(x + 5 * x_inc, y), (x + 6 * x_inc, lb_bottom)], fill=ds.color_pil['C'])
-    draw.rectangle([(x + 6 * x_inc, y), (x + 7 * x_inc, lb_bottom)], fill=ds.color_pil['L1'])
-    draw.rectangle([(x + 7 * x_inc, y), (x + 8 * x_inc, lb_bottom)], fill=ds.color_pil['L2'])
-    draw.rectangle([(x + 8 * x_inc, y), (x + 9 * x_inc, lb_bottom)], fill=ds.color_pil['L3'])
-    draw.rectangle([(x + 9 * x_inc, y), (x + 10 * x_inc, lb_bottom)], fill=ds.color_pil['L4'])
-    draw.rectangle([(x + 10 * x_inc, y), (x + 11 * x_inc, lb_bottom)], fill=ds.color_pil['L5'])
-    draw.rectangle([(x + 11 * x_inc, y), (x + 12 * x_inc, lb_bottom)], fill=ds.color_pil['L6'])
+    lb_row1_text_y = lb_top + lb_horizontal_div_height * 0 + lb_text_margin
+    lb_row2_text_y = lb_top + lb_horizontal_div_height * 1 + lb_text_margin
+    lb_row3_text_y = lb_top + lb_horizontal_div_height * 2 + lb_text_margin + 3
 
-    # draw legend box lines
-    draw.rectangle((lb_left, lb_top, lb_right, lb_bottom), outline="black")
-    draw.text((lb_left + lb_text_margin + 1 * (lb_width / 12), lb_top + lb_text_margin), "dark", "black")
-    draw.text((lb_left + lb_text_margin + 4 * (lb_width / 12), lb_top + lb_text_margin), "twilight", "black")
-    draw.text((lb_left + lb_text_margin + 8.5 * (lb_width / 12), lb_top + lb_text_margin), "light", "black")
-    draw.text((lb_left + lb_text_margin + 3 * (lb_width / 12), lb_horiz_div_height + 3 * lb_text_margin),
-              " astro    naut    civil", "white")
-    draw.line((lb_left, lb_horiz_div_height, lb_right, lb_horiz_div_height), "black")
-    draw.line((lb_left + 3 * x_inc, lb_top, lb_left + 3 * x_inc, lb_bottom), "black")
-    draw.line((lb_left + 6 * x_inc, lb_top, lb_left + 6 * x_inc, lb_bottom), "black")
+    # draw the legend color boxes
+    x = lb_left
+    y0 = 0 * lb_horizontal_div_height
+    y1 = 1 * lb_horizontal_div_height
+    y2 = 2 * lb_horizontal_div_height
+    y3 = 3 * lb_horizontal_div_height
+    x_inc = lb_width / lb_n_color_boxes
+    def fill_rect(n, color_key):
+        fr_x0 = float(lb_left + (n * x_inc))
+        fr_y0 = float(y1)
+        fr_x1 = float(lb_left + ((n + 1) * x_inc))
+        fr_y1 = float(y2)
+        draw.rectangle((fr_x0, fr_y0, fr_x1, fr_y1), fill=ds.color_pil[color_key])
+
+    def draw_rects(color_keys):
+        for i in range(len(color_keys)):
+            fill_rect(i, color_keys[i])
+
+    draw_rects(['D3', 'D2', 'D1', 'A', 'N', 'C', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6'])
+
+    # draw legend box text and lines
+    draw.text((lb_left + lb_text_margin + 1 * (lb_width / lb_n_color_boxes), lb_row1_text_y), "night", "black")
+    draw.text((lb_left + lb_text_margin + 4 * (lb_width / lb_n_color_boxes), lb_row1_text_y), "twilight", "black")
+    draw.text((lb_left + lb_text_margin + 8.5 * (lb_width / lb_n_color_boxes), lb_row1_text_y), "day", "black")
+
+    draw.text((lb_left + lb_text_margin + 3 * (lb_width / lb_n_color_boxes), lb_row2_text_y), " ASTRO", "white")
+    draw.text((lb_left + lb_text_margin + 4 * (lb_width / lb_n_color_boxes), lb_row2_text_y), " NAUT", "white")
+    draw.text((lb_left + lb_text_margin + 5 * (lb_width / lb_n_color_boxes), lb_row2_text_y), " CIVIL", "white")
+
+    # draw legend box text labels
+    draw.text((lb_left - 80, lb_row1_text_y),
+              "daytime phase", "black")
+    draw.text((lb_left - 80, lb_row2_text_y),
+              "plot color", "black")
+    draw.text((lb_left - 80, lb_row3_text_y),
+              "solar altitude", "black")
+
+
+    # draw tick marks dividing color boxes
+    for n in range(len(ds.elevations_in_deg)):
+        fr_x = float(lb_left + (n * x_inc))
+        fr_y0 = float(y2)
+        fr_y1 = float(y2 + 3)
+        draw.line((fr_x, fr_y0, fr_x, fr_y1), "black")
+
+    for n in range(len(ds.elevations_in_deg)):
+        xx_x = lb_left + (n * x_inc) - 7
+        xx_y = lb_row3_text_y
+        xx_s = str(ds.elevations_in_deg[n]) + "°"
+        draw.text((xx_x, xx_y), xx_s, "black")
+
+    draw.rectangle((lb_left, lb_top, lb_right, y2), outline="black")
+    draw.line((lb_left, lb_horizontal_div_height, lb_right, lb_horizontal_div_height), "black")
+
+    draw.line((lb_left + 3 * x_inc, lb_top, lb_left + 3 * x_inc, y2), "black")
+    draw.line((lb_left + 6 * x_inc, lb_top, lb_left + 6 * x_inc, y2), "black")
 
     # draw time of day across top
     x_hr_incr = h_points / 24
     y_st = t_margin
-    y_h = 12
+    y_h = 12  # start with a longer tick mark
     for hr in range(0, 24, 1):
         x = l_margin + hr * x_hr_incr
         draw.line((x, y_st, x, y_st - y_h), "black")
-        y_h ^= 8
+        y_h ^= 8  # toggle between longer and shorter tick mark
+        for y_o in range(t_margin, t_margin + v_points, 8):
+            draw.line((x, y_o, x, y_o + 1), grid_color)
     for hr in range(0, 24, 2):
         draw.text((l_margin + hr * x_hr_incr + 3 * lb_text_margin, t_margin - 12), "%d:00" % hr, "black")
 
+
     # day of year down the side
-    ddoy(draw, "2015.01.01", "Jan 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.02.01", "Feb 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.03.01", "Mar 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.04.01", "Apr 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.05.01", "May 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.06.01", "Jun 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.07.01", "Jul 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.08.01", "Aug 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.09.01", "Sep 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.10.01", "Oct 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.11.01", "Nov 1", l_margin, t_margin, v_mag)
-    ddoy(draw, "2015.12.01", "Dec 1", l_margin, t_margin, v_mag)
+    ddoy(draw, "2015.01.01", "Jan 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.02.01", "Feb 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.03.01", "Mar 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.04.01", "Apr 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.05.01", "May 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.06.01", "Jun 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.07.01", "Jul 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.08.01", "Aug 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.09.01", "Sep 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.10.01", "Oct 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.11.01", "Nov 1", l_margin, t_margin, v_mag, h_points, grid_color)
+    ddoy(draw, "2015.12.01", "Dec 1", l_margin, t_margin, v_mag, h_points, grid_color)
 
     # little plus signs at key day times
     dplusses(draw, "2015.03.21", l_margin, t_margin, v_mag, h_points)
@@ -518,7 +607,7 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     dplusses(draw, "2015.12.21", l_margin, t_margin, v_mag, h_points)
 
     # Spit out the image
-    fname = "twilight_lat-%0.0f%s.png" % (o_lat_deg, tilt_hint)
+    fname = "twilight_year_lat-%0.0f.png" % o_lat_deg
     image_output(img, fname, b64)
     return 0
 
@@ -919,7 +1008,9 @@ def main_except(argv):
         else:
             main_show_a_day_cartesian(options.o_lat, options.tilt, options.day, options.date, options.b64)
     else:
-        main_show_a_year(options.o_lat, options.tilt, 1, options.b64)
+        if options.polar:
+            raise Exception("The --polar option is valid only in --show-day day view")
+        main_show_a_year(options.o_lat, 1, options.b64)
 
 
 def main(argv):
