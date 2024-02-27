@@ -17,7 +17,7 @@ This is the main program. It has two main view generators for an observer at som
 
 An advanced solar geometry calculator.
 
-![A solar azimuth formula that renders circumstantial treatment unnecessary without compromising mathematical rigor: Mathematical setup, application and extension of a formula based on the subsolar point and atan2 function](https://www.sciencedirect.com/science/article/pii/S0960148121004031)
+[A solar azimuth formula that renders circumstantial treatment unnecessary without compromising mathematical rigor: Mathematical setup, application and extension of a formula based on the subsolar point and atan2 function - ScienceDirect](https://www.sciencedirect.com/science/article/pii/S0960148121004031)
 
 Algorithms/implementations: Taiping Zhang, Paul W. Stackhouse Jr., Bradley Macpherson, J. Colleen Mikovitz
  
@@ -28,9 +28,9 @@ This file is being deprecated. It calculates the subsolar point given a time-of-
 It's pretty naive in terms of modeling the earth orbit and analemma details. There is no compensation for the equation of time.
 Nor is there compensation for time zones or locations within a time zone.
 
-### Views
+# Twilight Views
 
-#### Day view
+## Day view
 
 Day view shows a plot where the x-axis is the time of day and the y-axis is the elevation of the sun.
 
@@ -38,11 +38,11 @@ Vertical bands highlight when day, night, and twilights change.
 
 A legend describes the plot colors.
 
-#### Year view
+## Year view
 
 Year view shows a plot where the x-axis is time of day and the y-axis is the day of the year. The elevation of the sun is implied by the colors of the graphs at each point.
 
-[Example year-view plot](images/twilight_year_lat-43.png?raw=true "Twilight year-view from 42.6 degrees north")
+![Example year-view plot](images/twilight_year_lat-43.png "Twilight year-view from 42.6 degrees north")
 
 ### Example invocations
 
