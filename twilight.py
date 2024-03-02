@@ -12,7 +12,7 @@ import base64
 import io
 import SG_sunpos_ultimate_azi_atan2 as SG
 
-TWILIGHT_VERSION = 2.0
+TWILIGHT_VERSION = "2.0.1"
 
 
 class Constants:
@@ -444,6 +444,9 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     for pday in range(0, 365):
         working_y += v_mag
         working_x = l_margin - h_mag
+        last_x_start = None
+        last_x_end = None
+        last_color = None
         for phour in range(0, 24):
             for pmin in range(0, 60):
                 working_x += h_mag
@@ -452,22 +455,38 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
                 sun_zenith_degrees, sun_azimuth_degrees, sun_lat, sun_lon, esd, eot = \
                     SG.solar_geometry(date, o_lat_deg, o_lon_deg)
                 color = ds.get_display(radians(sun_zenith_degrees))
-                #  print((working_x, working_y, working_x + h_mag, working_y + v_mag), color)
-                # TODO: aggregate smaller rectangles into one draw operation
-                draw.rectangle((working_x, working_y, working_x + h_mag, working_y + v_mag), color)
+                if last_x_start is None:
+                    # initialize accumulated colors
+                    last_x_start = working_x
+                    last_x_end = working_x
+                    last_color = color
+                    continue
+                else:
+                    if last_color == color:
+                        # accumulate another minute at this color
+                        last_x_end = working_x
+                        continue
+                    else:
+                        # emit current accumulation, start next
+                        draw.rectangle((last_x_start, working_y, last_x_end + h_mag, working_y + v_mag), last_color)
+                        last_x_start = working_x
+                        last_x_end = working_x
+                        last_color = color
+        # emit last color block accumulation
+        draw.rectangle((last_x_start, working_y, last_x_end + h_mag, working_y + v_mag), last_color)
 
     # Draw the plot title
     title_y1 = 2
     title_y2 = title_y1 + (1 * 12)
     title_y3 = title_y1 + (2 * 12)
     draw.text((2,title_y1),
-              "Solar twilight - year view",
+              "Solar-lat twilight year view",
               "black")
     draw.text((2,title_y2),
-              "Altitude of sun - colors indicate height of sun above or below horizon",
+              "Altitude of sun. Colors indicate height of sun above or below horizon",
               "black")
     draw.text((2,title_y3),
-              "Observer latitude: %0.1f" % o_lat_deg,
+              "Observer on prime meridian at latitude: %0.1f" % o_lat_deg,
               "black")
 
     # Draw source facts
@@ -575,6 +594,9 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     # draw time of day across top
     x_hr_incr = h_points / 24
     y_st = t_margin
+    # axis title
+    draw.text((l_margin + 3 * lb_text_margin, t_margin - 24), "GMT", "black")
+    # tick marks
     y_h = 12  # start with a longer tick mark
     for hr in range(0, 24, 1):
         x = l_margin + hr * x_hr_incr
@@ -582,9 +604,9 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
         y_h ^= 8  # toggle between longer and shorter tick mark
         for y_o in range(t_margin, t_margin + v_points, 8):
             draw.line((x, y_o, x, y_o + 1), grid_color)
+    # axis hour text
     for hr in range(0, 24, 2):
         draw.text((l_margin + hr * x_hr_incr + 3 * lb_text_margin, t_margin - 12), "%d:00" % hr, "black")
-
 
     # day of year down the side
     ddoy(draw, "2015.01.01", "Jan 1", l_margin, t_margin, v_mag, h_points, grid_color)
