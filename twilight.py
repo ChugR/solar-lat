@@ -12,7 +12,7 @@ import base64
 import io
 import SG_sunpos_ultimate_azi_atan2 as SG
 
-TWILIGHT_VERSION = "2.0.1"
+TWILIGHT_VERSION = "2.1.0"
 
 
 class Constants:
@@ -722,27 +722,26 @@ def main_show_a_day_polar(o_lat_deg=Constants.OBSERVER_LAT_DEG,
 
 
 def main_show_a_day_cartesian(o_lat_deg=Constants.OBSERVER_LAT_DEG,
-                              axial_tilt=Constants.OBLIQUITY,
                               day=0,
                               date='',
                               b64=False):
-    tilt_hint = "_tilt-%0.0f" % axial_tilt
-    # tilt_legend = ", axial tilt: %0.1f" % axial_tilt
 
-    # The run
+    # Observer location
     o_colat_rad = radians(90 - o_lat_deg)
-    solarLat = SolarLat(axial_tilt)
+    o_lon_deg = 0.0  # prime meridian
+
     ds = DisplayState(strategy=3)
     if date != '':
         day = get_doy(date)
 
     if not b64:
-        print("Twilight v%2.1f Observer is at %2.1f degrees north." % (TWILIGHT_VERSION, o_lat_deg))
-        print("  day of year=%d, date: %s, axial tilt=%f" % (day, get_date_of_doy(day), axial_tilt))
+        print("Twilight v%s Observer is at %2.1f degrees north." % (TWILIGHT_VERSION, o_lat_deg))
+        print("  day of year=%d, date: %s" % (day, get_date_of_doy(day)))
 
+    # image layout (in pixels)
     l_margin = 50
-    r_margin = 100 # leaves room for legend-box-right
-    t_margin = 40
+    r_margin = 100  # leaves room for legend-box-right
+    t_margin = 60
     b_margin = 10
     h_points = 24*60
     v_points = 800
@@ -750,45 +749,80 @@ def main_show_a_day_cartesian(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     W = l_margin + h_points + r_margin
     H = t_margin + v_points + b_margin
 
+    # helpful grid lines
+    grid_color = "green"
+
     img = Image.new("RGB", (W, H), "white")
     draw = ImageDraw.Draw(img)
 
-    # draw the pattern
-    # draw the vertical bars for each minute
-    min_per_day = float(24) * float(60)
+    # draw the diagram
+    base_dt = datetime.datetime(2019, 1, 1) + datetime.timedelta(days=(day+1))
     for minute in range(0, 24 * 60):
-        fraction_tod = float(minute) / min_per_day
-        state = compute_display_state(day, fraction_tod, o_colat_rad, solarLat, ds)
+        # get solar geometry for this minute
+        td_minute = datetime.timedelta(minutes=minute)
+        date = base_dt + td_minute
+        sun_zenith_degrees, sun_azimuth_degrees, sun_lat, sun_lon, esd, eot = \
+            SG.solar_geometry(date, o_lat_deg, o_lon_deg)
+
+        # draw the colorized vertical bar for this minute
+        color = ds.get_display(radians(sun_zenith_degrees))
         x = l_margin + minute
-        draw.line((x, t_margin, x, t_margin + v_points), state, width=1)
+        draw.line((x, t_margin, x, t_margin + v_points), color, width=1)
+
+        # draw the blip to show the solar altitude for this minute
+        color = "black" if sun_zenith_degrees <= 90 else "white"
+        yse = t_margin + int((float(v_points) / 180.0) * sun_zenith_degrees)
+
+        draw.line((x, yse, x, yse), color, width=1)
 
     # draw horizon
     y = t_margin + v_points / 2
     draw.line((l_margin, y, l_margin + h_points, y), "green", width=1)
 
-    # draw the blips to show the solar altitude
-    for minute in range(0, 24 * 60):
-        fraction_tod = float(minute) / min_per_day
-        ca = compute_solar_coaltitude(day, fraction_tod, o_colat_rad, solarLat)
-        x = l_margin + minute
-
-        color = "black" if ca <= radians(90) else "white"
-        yse = t_margin + v_points * ca / math.pi
-
-        draw.line((x, yse, x, yse), color, width=1)
-
     # Draw the title and other facts
-    ttext = "Altitude of Sun vs. Time of Day."
-    draw.text(((l_margin + h_points + r_margin) / 2, 1),
+    title_y1 = 2
+    title_y2 = title_y1 + (1 * 12)
+    title_y3 = title_y1 + (2 * 12)
+
+    ttext = "Solar-lat twilight day view - altitude of sun vs. GMT"
+    draw.text(((l_margin + h_points + r_margin) / 2, title_y1),
               ttext,
               "black",
               anchor="ma")
-    draw.text((2,1),
-              "Solar Twilight v%s" % TWILIGHT_VERSION,
+
+    draw.text((2, title_y1),
+              "Solar-lat twilight day view",
               "black")
-    draw.text((2,13),
-              "Observer latitude: %0.1f, Date: %s, Day of year: %d" % (o_lat_deg, get_date_of_doy(day), day),
+    draw.text((2, title_y2),
+              "Altitude of sun. Colors indicate height of sun above or below horizon",
               "black")
+    draw.text((2, title_y3),
+              "Observer on prime meridian at latitude: %0.1f, Date: %s, Day of year: %d" %
+              (o_lat_deg, get_date_of_doy(day), day),
+              "black")
+
+    # Draw source facts
+    source_info_x = W - 230
+    source_info_x2 = W - 190
+    draw.text((source_info_x, title_y1),
+              "project:",
+              "black")
+    draw.text((source_info_x2, title_y1),
+              "https://github.com/ChugR/solar-lat",
+              "black")
+    draw.text((source_info_x, title_y2),
+              "file:",
+              "black")
+    draw.text((source_info_x2, title_y2),
+              "twilight.py",
+              "black")
+    draw.text((source_info_x, title_y3),
+              "version:",
+              "black")
+    draw.text((source_info_x2, title_y3),
+              "%s" % TWILIGHT_VERSION,
+              "black")
+
 
     # draw fancy legend box right "lbr"
     # the 0,0 for lbr is the upper right corner of the main drawing
@@ -814,8 +848,8 @@ def main_show_a_day_cartesian(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     ddoy_lbr(draw, ds, lbr_x_o, lbr_y_o, v_points, lbr_w_boxes, -66, -90, 'D3', '')
     ddoy_lbr(draw, ds, lbr_x_o, lbr_y_o, v_points, lbr_w_boxes, -90, -90, 'D3', '')
 
-    draw.text((lbr_x_o + 5, lbr_y_o - 24), "chart", "black")
-    draw.text((lbr_x_o + 5, lbr_y_o - 12), "colors", "black")
+    draw.text((lbr_x_o + 5, lbr_y_o - 24), "twilight", "black")
+    draw.text((lbr_x_o + 5, lbr_y_o - 12), "condition", "black")
 
     draw.line((lbr_x_o, lbr_y_o, lbr_x_o + lbr_w_boxes, lbr_y_o), "black")
     draw.line((lbr_x_o, lbr_y_o - 26, lbr_x_o + lbr_w_boxes, lbr_y_o - 26), "black")
@@ -854,8 +888,21 @@ def main_show_a_day_cartesian(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     dalt(draw, -80, "    -80", l_margin, t_margin, v_points)
     dalt(draw, -90, "  nadir", l_margin, t_margin, v_points)
 
+    # draw graph grids
+    for hr in range(0, 24, 1):
+        x = l_margin + hr * x_hr_incr
+        for y_o in range(t_margin, t_margin + v_points, 20):
+            draw.line((x, y_o, x, y_o + 1), grid_color)
+    y_base = t_margin + (v_points / 2)
+    for elevation in range(10, 90, 10):  # elevation degrees from horizon
+        pixels_per_degree = float(v_points) / 180.0
+        y_off = int(float(elevation) * pixels_per_degree)
+        for x_o in range(l_margin, l_margin + h_points, 20):
+            draw.line((x_o, y_base - y_off, x_o, y_base - y_off), grid_color)
+            draw.line((x_o, y_base + y_off, x_o, y_base + y_off), grid_color)
+
     # Spit out the image
-    fname = "twilight_cart_day_%s_lat-%0.0f%s.png" % (day, o_lat_deg, tilt_hint)
+    fname = "twilight_cart_day_%s_lat-%0.0f.png" % (day, o_lat_deg)
     image_output(img, fname, b64)
     return 0
 
@@ -1028,7 +1075,7 @@ def main_except(argv):
         if options.polar:
             main_show_a_day_polar(options.o_lat, options.tilt, options.day, options.date, options.b64)
         else:
-            main_show_a_day_cartesian(options.o_lat, options.tilt, options.day, options.date, options.b64)
+            main_show_a_day_cartesian(options.o_lat, options.day, options.date, options.b64)
     else:
         if options.polar:
             raise Exception("The --polar option is valid only in --show-day day view")
