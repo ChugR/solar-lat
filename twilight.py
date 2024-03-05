@@ -14,6 +14,7 @@ import SG_sunpos_ultimate_azi_atan2 as SG
 
 TWILIGHT_VERSION = "2.1.0"
 
+SG_COMPUTE_INTERVAL_MINUTES = 1
 
 class Constants:
     """
@@ -383,9 +384,7 @@ def image_output(image, fname, b64):
         image.show()
 
 
-def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
-                     interval_min=1,
-                     b64=False):
+def main_show_a_year(options):
     #
     # mission code
     # Show 2019 ephemeris data
@@ -405,6 +404,9 @@ def main_show_a_year(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     # not centered on the local time zone. Also, there is no accommodation for daylight savings time that
     # shifts the plot by political DST rules.
     #
+    # function args
+    o_lat_deg = options.o_lat
+    b64 = options.b64
 
     # observer location
     o_colat_rad = radians(90 - o_lat_deg)
@@ -721,10 +723,13 @@ def main_show_a_day_polar(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     return 0
 
 
-def main_show_a_day_cartesian(o_lat_deg=Constants.OBSERVER_LAT_DEG,
-                              day=0,
-                              date='',
-                              b64=False):
+def main_show_a_day_cartesian(options):
+
+    # function args
+    o_lat_deg = options.o_lat
+    day = options.day
+    date = options.date
+    b64 = options.b64
 
     # Observer location
     o_colat_rad = radians(90 - o_lat_deg)
@@ -907,13 +912,15 @@ def main_show_a_day_cartesian(o_lat_deg=Constants.OBSERVER_LAT_DEG,
     return 0
 
 
-def main_show_a_day_cartesian_panels(o_lat_deg=Constants.OBSERVER_LAT_DEG,
-                                     axial_tilt=Constants.OBLIQUITY,
-                                     day=0,
-                                     date='',
-                                     b64=False,
+def main_show_a_day_cartesian_panels(options,
                                      panel_az=180,
                                      panel_el=90):
+    o_lat_deg = options.o_lat
+    axial_tilt = options.tilt
+    day = options.day
+    date = options.date
+    b64 = options.b64
+
     tilt_hint = "_tilt-%0.0f" % axial_tilt
     # tilt_legend = ", axial tilt: %0.1f" % axial_tilt
 
@@ -925,7 +932,7 @@ def main_show_a_day_cartesian_panels(o_lat_deg=Constants.OBSERVER_LAT_DEG,
         day = get_doy(date)
 
     if not b64:
-        print("Twilight v%2.1f Observer is at %2.1f degrees north. Panel az, el = %f, %s" %
+        print("Twilight v%s Observer is at %2.1f degrees north. Panel az, el = %f, %s" %
               (TWILIGHT_VERSION, o_lat_deg, panel_az, panel_el))
         print("  day of year=%d, date: %s, axial tilt=%f" % (day, get_date_of_doy(day), axial_tilt))
 
@@ -968,10 +975,10 @@ def main_show_a_day_cartesian_panels(o_lat_deg=Constants.OBSERVER_LAT_DEG,
 
     # Draw the title and other facts
     ttext = "Altitude of Sun vs. Time of Day."
-    w, h = draw.textsize(ttext)
-    draw.text(((W - w ) / 2, 1),
+    draw.text(((l_margin + h_points + r_margin) / 2, 1),
               ttext,
-              "black")
+              "black",
+              anchor="ma")
     draw.text((2,1),
               "Solar Twilight v%s" % TWILIGHT_VERSION,
               "black")
@@ -1052,7 +1059,7 @@ def main_show_a_day_cartesian_panels(o_lat_deg=Constants.OBSERVER_LAT_DEG,
 def main_except(argv):
     parser = OptionParser()
     parser.add_option("-f", "--file", action="store", type="string", dest="filename",
-                      help="Write image to FILE", metavar="FILE")
+                      help="Write image to .png FILE", metavar="FILE", default=None)
     parser.add_option("-o", "--o-lat", action="store", type="float", dest="o_lat",
                       help="Observer latitude in degrees north", default=Constants.OBSERVER_LAT_DEG)
     parser.add_option("-t", "--tilt", action="store", type="float", dest="tilt",
@@ -1073,13 +1080,13 @@ def main_except(argv):
     #
     if options.showDay:
         if options.polar:
-            main_show_a_day_polar(options.o_lat, options.tilt, options.day, options.date, options.b64)
+            main_show_a_day_polar(options)
         else:
-            main_show_a_day_cartesian(options.o_lat, options.day, options.date, options.b64)
+            main_show_a_day_cartesian_panels(options)
     else:
         if options.polar:
             raise Exception("The --polar option is valid only in --show-day day view")
-        main_show_a_year(options.o_lat, 1, options.b64)
+        main_show_a_year(options)
 
 
 def main(argv):
