@@ -182,61 +182,6 @@ def compute_half_day(day, o_colat_rad, solar_lat, start_min, interval, accumulat
         accumulator.counts[state] += 1
 
 
-def main_except_v0(argv):
-    #
-    # mission code
-    #
-    # Display as:
-    # 1. Simple ascii letters only
-    # 2. Ansi colorized escapes sequences and then letters
-    #
-    display_as = 1
-
-    # Settings for this run
-    # arg 1: observer's latitude [42]
-    o_lat_deg = 42.2    # user latitude in degrees North
-    if len(sys.argv) >= 2:
-        o_lat_deg = float(sys.argv[1])
-    # arg 2: time between sample points in minutes
-    interval_min = 10   # time between plot points in minutes
-    if len(sys.argv) >= 3:
-        interval_min = int(sys.argv[2])
-
-    # The run
-    o_colat_rad = radians(90 - o_lat_deg)
-    solarLat = SolarLat()
-    ds = DisplayState()
-    print("Twilight v%2.1f Observer is at %2.1f degrees north." % (TWILIGHT_VERSION, o_lat_deg))
-    xlabel1 = ""
-    xlabel2 = ""
-    pad = " " * int(60 / interval_min - 2)
-    for hr in range(0, 24):
-        xlabel1 += format(hr, '02d') + pad
-        xlabel2 += "| " + pad
-    print("     " + xlabel1)
-    print("     " + xlabel2)
-    for day in range (0, 365):
-        as_am = AccumulateState()
-        compute_half_day(day, o_colat_rad, solarLat, 00*60, interval_min, as_am)
-        as_pm = AccumulateState()
-        compute_half_day(day, o_colat_rad, solarLat, 12*60, interval_min, as_pm)
-        line = format(day, '03d') + ": "
-        for s in ["D3", "D2", "D1", "A", "N", "C", "L1", "L2", "L3", "L4", "L5", "L6"]:
-            n = as_am.counts[s]
-            if n > 0:
-                if display_as == 2:
-                    line += ds.color_pil[s]
-                line += s * n
-        for s in ["L6", "L5", "L4", "L3", "L2", "L1", "C", "N", "A", "D1", "D2", "D3"]:
-            n = as_pm.counts[s]
-            if n > 0:
-                if display_as == 2:
-                    line += ds.color_pil[s]
-                line += s * n
-        print("%s" % line)
-    return 0
-
-
 def get_doy(doy_string):
     """
     Given a doy string like "2011.01.01" return the day of the year 0..364
@@ -695,7 +640,6 @@ def main_show_a_day_polar(options):
             xse = xc + dx * scale
             yse = yc + dy * scale
 
-        # print ("Min=%d, ca=%f xc=%d, yc=%d, xe=%f, ye=%f, xse=%f, yse=%f " % (min, degrees(ca), xc, yc, xe, ye, xse, yse))
         draw.line((xse, yse, xse, yse), color, width=1)
 
     # Optionally save the image
@@ -936,14 +880,21 @@ def main_except(argv):
     parser.add_option("--no-autoview", action="store_true", dest="noautoview", default=False,
                       help="Do not automatically spawn system image viewer for generated image")
 
+    # version info
+    parser.add_option("-v", "--version", action="store_true", dest="showversion", default=False,
+                      help="Print program version number and exit")
 
     #
     (options, args) = parser.parse_args()
 
+    if options.showversion:
+        print("V%s" % TWILIGHT_VERSION)
+        return
+
     # If filename given then limit it to plain characters in CWD
     if options.filename is not None:
         if not check_problematic_filename(options.filename):
-            raise Exception("The --file option is limited to simple alphanumeric characters with no directory traversals")
+            raise Exception("The --file option is limited to alphanumeric characters with no directory traversals")
 
     #
     if options.showDay:
