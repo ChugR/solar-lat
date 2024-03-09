@@ -5,12 +5,12 @@
 from optparse import OptionParser
 import SolarLat
 from SolarLat import *
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 import datetime
 import traceback
-import base64
 import io
 import SG_sunpos_ultimate_azi_atan2 as SG
+import string
 
 TWILIGHT_VERSION = "2.1.0"
 
@@ -365,25 +365,6 @@ def ddoy_lbr(draw, ds, x_o, y_o, v_ticks, wid, deg1, deg2, color, boxlabel, bl2=
     draw.text((x + wid + 5, y_top - 5), str(deg1), "black")
 
 
-def image_output(image, fname, b64):
-    """
-    Dump the image. If b64 then show base64 on stdout else
-    write png to file.
-    :param image:
-    :param fname:
-    :param b64:
-    :return:
-    """
-    if b64:
-        buffered = io.StringIO()
-        image.save(buffered, "PNG")
-        image_str = base64.b64encode(buffered.getvalue())
-        print("%s" % image_str)
-    else:
-        image.save(fname, "PNG")
-        image.show()
-
-
 def main_show_a_year(options):
     #
     # mission code
@@ -395,8 +376,6 @@ def main_show_a_year(options):
     # Settings for this run
     # arg 1: observer's latitude [42]
     # arg 2: time between sample points in minutes
-    # arg 3: emit images as base64 instead of png in order to
-    #        support a web-based scheme
     #
     # This program considers only a point at some latitude on the prime meridian north of the equator.
     # South of the equator might work, but it hasn't been tested.
@@ -406,10 +385,8 @@ def main_show_a_year(options):
     #
     # function args
     o_lat_deg = options.o_lat
-    b64 = options.b64
 
     # observer location
-    o_colat_rad = radians(90 - o_lat_deg)
     o_lon_deg = 0.0  # prime meridian
 
     ds = DisplayState(strategy=3)
@@ -630,9 +607,14 @@ def main_show_a_year(options):
     dplusses(draw, "2015.09.21", l_margin, t_margin, v_mag, h_points)
     dplusses(draw, "2015.12.21", l_margin, t_margin, v_mag, h_points)
 
-    # Spit out the image
-    fname = "twilight_year_lat-%0.0f.png" % o_lat_deg
-    image_output(img, fname, b64)
+    # Optionally save the image
+    if options.filename is not None:
+        img.save(options.filename, "PNG")
+
+    # Optionally skip autoviewing the image
+    if not options.noautoview:
+        img.show()
+
     return 0
 
 
@@ -642,7 +624,6 @@ def main_show_a_day_polar(options):
     o_lat_deg = options.o_lat
     day = options.day
     date = options.date
-    b64 = options.b64
 
     # The run
     o_colat_rad = radians(90 - o_lat_deg)
@@ -717,9 +698,14 @@ def main_show_a_day_polar(options):
         # print ("Min=%d, ca=%f xc=%d, yc=%d, xe=%f, ye=%f, xse=%f, yse=%f " % (min, degrees(ca), xc, yc, xe, ye, xse, yse))
         draw.line((xse, yse, xse, yse), color, width=1)
 
-    # Spit out the image
-    fname = "twilight_polar_day_%s_lat-%0.0f.png" % (day, o_lat_deg)
-    image_output(img, fname, b64)
+    # Optionally save the image
+    if options.filename is not None:
+        img.save(options.filename, "PNG")
+
+    # Optionally skip autoviewing the image
+    if not options.noautoview:
+        img.show()
+
     return 0
 
 
@@ -729,19 +715,13 @@ def main_show_a_day_cartesian(options):
     o_lat_deg = options.o_lat
     day = options.day
     date = options.date
-    b64 = options.b64
 
     # Observer location
-    o_colat_rad = radians(90 - o_lat_deg)
     o_lon_deg = 0.0  # prime meridian
 
     ds = DisplayState(strategy=3)
     if date != '':
         day = get_doy(date)
-
-    if not b64:
-        print("Twilight v%s Observer is at %2.1f degrees north." % (TWILIGHT_VERSION, o_lat_deg))
-        print("  day of year=%d, date: %s" % (day, get_date_of_doy(day)))
 
     # image layout (in pixels)
     l_margin = 50
@@ -906,33 +886,65 @@ def main_show_a_day_cartesian(options):
             draw.line((x_o, y_base - y_off, x_o, y_base - y_off), grid_color)
             draw.line((x_o, y_base + y_off, x_o, y_base + y_off), grid_color)
 
-    # Spit out the image
-    fname = "twilight_cart_day_%s_lat-%0.0f.png" % (day, o_lat_deg)
-    image_output(img, fname, b64)
+    # Optionally save the image
+    if options.filename is not None:
+        img.save(options.filename, "PNG")
+
+    # Optionally skip autoviewing the image
+    if not options.noautoview:
+        img.show()
+
     return 0
+
+
+def check_problematic_filename(filename):
+    # return true if given non-blank filename contains no problematic characters
+    if len(filename) == 0:
+        return False  # name may not be blank
+    for c in filename:
+        if c not in string.printable:
+            return False  # printable chars only
+        if c in string.whitespace:
+            return False  # whitespace disallowed
+        if c in r"/\?%*:|<>'`":
+            return False  # problematic for various reasons
+        if c in r'"':
+            return False
+    return True
 
 
 def main_except(argv):
     parser = OptionParser()
-    parser.add_option("-f", "--file", action="store", type="string", dest="filename",
-                      help="Write image to .png FILE", metavar="FILE", default=None)
+
+    # Observer location
     parser.add_option("-o", "--o-lat", action="store", type="float", dest="o_lat",
-                      help="Observer latitude in degrees north", default=Constants.OBSERVER_LAT_DEG)
-    parser.add_option("-t", "--tilt", action="store", type="float", dest="tilt",
-                      help="Axial tilt in degrees", default=Constants.OBLIQUITY)
+                      help="Observer latitude in degrees north [0.0 .. 90.0]", default=Constants.OBSERVER_LAT_DEG)
+    # View control
     parser.add_option("--show-day", action="store_true", dest="showDay", default=False,
                       help="Show day-view instead of year-view")
     parser.add_option("--polar", action="store_true", dest="polar", default=False,
                       help="Show day-view in polar coordinates instead of cartesion coordinates")
     parser.add_option("-d", "--day", action="store", type="int", dest="day", default=0,
-                      help="In day-view, which day in range 0..364 to render. default=0")
+                      help="In day-view, which day in range 0..364 to render. default=0. "
+                           "Use -d/--day or --date but not both.")
     parser.add_option("--date", action="store", dest="date", default="",
-                      help="In day-view, which day of year to view. Use format 'YYYY.MM.DD'. Use --day or --date but not both.")
-    parser.add_option("-b", "--base64",  action="store_true", dest="b64", default=False,
-                      help="Send base64 image to stdout")
+                      help="In day-view, which day of year to view. Use format 'YYYY.MM.DD'. "
+                           "Use -d/--day or --date but not both.")
+    # Output options
+    parser.add_option("-f", "--filename", action="store", type="string", dest="filename",
+                      help="When specified, write image to .png FILE", metavar="FILE", default=None)
+    parser.add_option("--no-autoview", action="store_true", dest="noautoview", default=False,
+                      help="Do not automatically spawn system image viewer for generated image")
+
 
     #
     (options, args) = parser.parse_args()
+
+    # If filename given then limit it to plain characters in CWD
+    if options.filename is not None:
+        if not check_problematic_filename(options.filename):
+            raise Exception("The --file option is limited to simple alphanumeric characters with no directory traversals")
+
     #
     if options.showDay:
         if options.polar:
