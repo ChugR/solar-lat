@@ -3,18 +3,18 @@
 # Use the SolarLat package to discover cool stuff about twilight.
 
 from optparse import OptionParser
-import SolarLat
 from SolarLat import *
 from PIL import Image, ImageDraw
 import datetime
 import traceback
-import io
 import SG_sunpos_ultimate_azi_atan2 as SG
 import string
 
-TWILIGHT_VERSION = "2.1.0"
+TWILIGHT_VERSION = "2.1.1"
 
 SG_COMPUTE_INTERVAL_MINUTES = 1
+
+DEGREE_SYMBOL = "°"
 
 class Constants:
     """
@@ -63,7 +63,7 @@ class DisplayState:
         self.rad_max_D1 = radians(132)
         self.rad_max_D2 = radians(156)
 
-        # zenith angles defining ranges as observer +/- elevation angles in degrees
+        # angles defining ranges as observer +/- elevation angles in degrees
         self.elevations_in_deg = [-90, -66, -42, -18, -12, -6, 0, 15, 30, 45, 60, 75, 90]
 
         # colors[] holds the set-ansi-color escape sequence
@@ -309,6 +309,37 @@ def ddoy_lbr(draw, ds, x_o, y_o, v_ticks, wid, deg1, deg2, color, boxlabel, bl2=
     draw.line((x + wid, y_top, x + wid + 2, y_top), "black")
     draw.text((x + wid + 5, y_top - 5), str(deg1), "black")
 
+def draw_titles(draw, width, l1, l2, l3):
+    title_y1 = 2
+    title_y2 = title_y1 + (1 * 12)
+    title_y3 = title_y1 + (2 * 12)
+    draw.text((2,title_y1), l1, "black")
+    draw.text((2,title_y2), l2, "black")
+    draw.text((2,title_y3), l3, "black")
+
+    # Draw source facts
+    source_info_x = width - 230
+    source_info_x2 = width - 190
+    draw.text((source_info_x, title_y1),
+              "project:",
+              "black")
+    draw.text((source_info_x2, title_y1),
+              "https://github.com/ChugR/solar-lat",
+              "black")
+    draw.text((source_info_x, title_y2),
+              "file:",
+              "black")
+    draw.text((source_info_x2, title_y2),
+              "twilight.py",
+              "black")
+    draw.text((source_info_x, title_y3),
+              "version:",
+              "black")
+    draw.text((source_info_x2, title_y3),
+              "%s" % TWILIGHT_VERSION,
+              "black")
+
+
 
 def main_show_a_year(options):
     #
@@ -400,40 +431,10 @@ def main_show_a_year(options):
         draw.rectangle((last_x_start, working_y, last_x_end + h_mag, working_y + v_mag), last_color)
 
     # Draw the plot title
-    title_y1 = 2
-    title_y2 = title_y1 + (1 * 12)
-    title_y3 = title_y1 + (2 * 12)
-    draw.text((2,title_y1),
-              "Solar-lat twilight year view",
-              "black")
-    draw.text((2,title_y2),
-              "Altitude of sun. Colors indicate height of sun above or below horizon",
-              "black")
-    draw.text((2,title_y3),
-              "Observer on prime meridian at latitude: %0.1f" % o_lat_deg,
-              "black")
-
-    # Draw source facts
-    source_info_x = W - 230
-    source_info_x2 = W - 190
-    draw.text((source_info_x, title_y1),
-              "project:",
-              "black")
-    draw.text((source_info_x2, title_y1),
-              "https://github.com/ChugR/solar-lat",
-              "black")
-    draw.text((source_info_x, title_y2),
-              "file:",
-              "black")
-    draw.text((source_info_x2, title_y2),
-              "twilight.py",
-              "black")
-    draw.text((source_info_x, title_y3),
-              "version:",
-              "black")
-    draw.text((source_info_x2, title_y3),
-              "%s" % TWILIGHT_VERSION,
-              "black")
+    draw_titles(draw, W,
+                "Solar-lat twilight year view",
+                "Altitude of sun. Colors indicate height of sun above or below horizon",
+                "Observer on prime meridian at latitude: %0.1f" % o_lat_deg)
 
     # Draw the legend
     # define legend box "lb"
@@ -506,7 +507,7 @@ def main_show_a_year(options):
     for n in range(len(ds.elevations_in_deg)):
         xx_x = lb_left + (n * x_inc) - 7
         xx_y = lb_row3_text_y
-        xx_s = str(ds.elevations_in_deg[n]) + "°"
+        xx_s = str(ds.elevations_in_deg[n]) + DEGREE_SYMBOL
         draw.text((xx_x, xx_y), xx_s, "black")
 
     draw.rectangle((lb_left, lb_top, lb_right, y2), outline="black")
@@ -563,6 +564,23 @@ def main_show_a_year(options):
     return 0
 
 
+def polar_text_offsets(azimuth_deg):
+    # Given an azimuth angle in degrees, return x,y text offsets for labels
+    text_height = 9
+    text_width  = 18
+    spacing = 2
+    result = ()
+    if azimuth_deg <= 90.0:
+        result = (-text_width, spacing)
+    elif azimuth_deg <= 180.0:
+        result = (-text_width, -(text_height + spacing))
+    elif azimuth_deg <= 270.0:
+        result = (spacing, -(text_height + spacing))
+    else:
+        result = (spacing, spacing)
+    return result
+
+
 def main_show_a_day_polar(options):
 
     # function args
@@ -570,9 +588,9 @@ def main_show_a_day_polar(options):
     day = options.day
     date = options.date
 
-    # The run
-    o_colat_rad = radians(90 - o_lat_deg)
-    solarLat = SolarLat(Constants.OBLIQUITY)
+    # observer location
+    o_lon_deg = 0.0  # prime meridian
+
     ds = DisplayState(strategy=3)
     if date != '':
         day = get_doy(date)
@@ -580,13 +598,15 @@ def main_show_a_day_polar(options):
     print ("Twilight v%s Observer is at %2.1f degrees north." % (TWILIGHT_VERSION, o_lat_deg))
     print ("  date: %s, day of year: %d" % (get_date_of_doy(day), day))
 
-    l_margin = 30
-    r_margin = 10
-    t_margin = 60
-    b_margin = 10
-    radius = 300
+    l_margin = 50
+    r_margin = 50
+    t_margin = 75
+    b_margin = 20
+    radius = 450
     W = l_margin + radius * 2 + r_margin
     H = t_margin + radius * 2 + b_margin
+
+    TIME_COLOR = "green"
 
     img = Image.new("RGB", (W, H), "white")
     draw = ImageDraw.Draw(img)
@@ -595,52 +615,125 @@ def main_show_a_day_polar(options):
     xc = l_margin + radius
     yc = t_margin + radius
 
-    # draw the pattern
-    min_per_day = float(24) * float(60)
-    for min in range(0, 24 * 60):
-        # draw the pie wedge for this minute
-        fraction_tod = float(min) / min_per_day
-        cos_tod = cos(fraction_tod * 2 * math.pi)
-        sin_tod = sin(fraction_tod * 2 * math.pi)
-        dx = cos_tod * radius
-        dy = sin_tod * radius
-        xe = xc + dx
-        ye = yc + dy
-        state = compute_display_state(day, fraction_tod, o_colat_rad, solarLat, ds)
-        draw.line((xc, yc, xe, ye), state, width=2)
-    for min in range(0, 24 * 60):
-        # draw the blip to show the solar altitude
-        fraction_tod = float(min) / min_per_day
-        cos_tod = cos(fraction_tod * 2 * math.pi)
-        sin_tod = sin(fraction_tod * 2 * math.pi)
-        dx = cos_tod * radius
-        dy = sin_tod * radius
-        xe = xc + dx
-        ye = yc + dy
-        ca = compute_solar_coaltitude(day, fraction_tod, o_colat_rad, solarLat)
+    # This diagram plots the altitude against the azimuth of the sun.
+    # The observer is at the center of the diagram facing south
+    #   North (azimuth=0)   is at  6 o'clock
+    #   South (azimuth=180) is at 12 o'clock
+    # As the solar azimuth angle increases it moves clockwise in the diagram.
+    # Solar altitudes are plotted with
+    #   nadir is the circle center
+    #   zenith is the circle circumference.
 
-        plot_strategy=2
-        if plot_strategy == 1:
-            # plot by the sin of the altitude. Looks weird.
-            if ca <= radians(90):
-                color="black"
-            else:
-                color="white"
-            xse = xc + dx * sin(ca)
-            yse = yc + dy * sin(ca)
+    zeniths  = [0.0] * (24 * 60)
+    azimuths = [0.0] * (24 * 60)
+    colors   = [""]  * (24 * 60)
+    dcoses_az   = [0.0] * (24 * 60)
+    dsines_az   = [0.0] * (24 * 60)
 
-        if plot_strategy == 2:
-            # plot linear angle. Looks weird.
-            if ca <= radians(90):
-                color="black"
-                scale = ca * 2.0 / math.pi
-            else:
-                color="white"
-                scale = (math.pi - ca) * 2.0 / math.pi
-            xse = xc + dx * scale
-            yse = yc + dy * scale
+    # compute this plot's numbers
+    base_dt = datetime.datetime(2019, 1, 1) + datetime.timedelta(days=(day+1))
+    for phour in range(0, 24):
+        for pmin in range(0, 60):
+            this_minute = phour * 60 + pmin
+            td_minute = datetime.timedelta(hours=phour, minutes=pmin)
+            date = base_dt + td_minute
+            sun_zenith_degrees, sun_azimuth_degrees, sun_lat, sun_lon, esd, eot = \
+                SG.solar_geometry(date, o_lat_deg, o_lon_deg)
 
-        draw.line((xse, yse, xse, yse), color, width=1)
+            assert(sun_zenith_degrees >=   0.0)
+            assert(sun_zenith_degrees <= 180.0)
+
+            color = ds.get_display(radians(sun_zenith_degrees))
+            dcos_az = cos(radians(sun_azimuth_degrees))
+            dsin_az = sin(radians(sun_azimuth_degrees))
+
+            zeniths[this_minute] = sun_zenith_degrees
+            azimuths[this_minute] = sun_azimuth_degrees
+            colors[this_minute] = color
+            dcoses_az[this_minute] = dcos_az
+            dsines_az[this_minute] = dsin_az
+
+    # plot the background colors
+    # zenith angles: 0, 15, 30, ... for each display color bound.
+    # ignore the last one
+    zas = [x + 90 for x in reversed(ds.elevations_in_deg[1:])]
+    # color codes corresponding to entries in zas
+    za_ccs = ["L6", "L5", "L4", "L3", "L2", "L1", "C", "N", "A", "D1", "D2", "D3"]
+
+    for zai in range(len(zas)):
+        za = zas[zai]
+        color = ds.color_pil[za_ccs[zai]]
+        bg_radius = int((float(za) / 180.0) * radius)
+        ulx = xc - bg_radius
+        uly = yc - bg_radius
+        lrx = xc + bg_radius
+        lry = yc + bg_radius
+        draw.ellipse((ulx, uly, lrx, lry), fill=color)
+
+    # Enclosing circle
+    ulx = xc - radius
+    uly = yc - radius
+    lrx = xc + radius
+    lry = yc + radius
+    draw.ellipse((ulx, uly, lrx, lry), fill=None, outline="black")
+
+    # draw aa/el chart, time ticks and labels
+    for phour in range(0, 24):
+        for pmin in range(0, 60):
+            this_minute = phour * 60 + pmin
+            xtick = xc - int(dsines_az[this_minute] * (1.0 - (zeniths[this_minute] / 180.0)) * radius)
+            ytick = yc + int(dcoses_az[this_minute] * (1.0 - (zeniths[this_minute] / 180.0)) * radius)
+            color = "white" if zeniths[this_minute] > 90.0 else "black"
+            draw.line((xtick, ytick, xtick, ytick), color, width=2)
+
+            if pmin == 0:
+                # Every hour gets a tick mark
+                xtick2 = xc - int(dsines_az[this_minute] * (1.0 - (zeniths[this_minute] / 180.0)) * (radius + 10))
+                ytick2 = yc + int(dcoses_az[this_minute] * (1.0 - (zeniths[this_minute] / 180.0)) * (radius + 10))
+                draw.line((xtick, ytick, xtick2, ytick2), TIME_COLOR, width=1)
+
+                # Every other hour gets a label
+                if phour % 2 == 0:
+                    xtick3 = xc - int(dsines_az[this_minute] * (1.0 - (zeniths[this_minute] / 180.0)) * (radius + 15))
+                    ytick3 = yc + int(dcoses_az[this_minute] * (1.0 - (zeniths[this_minute] / 180.0)) * (radius + 15))
+                    xoff, yoff = polar_text_offsets((azimuths[this_minute] + 90.0) % 360.0)
+                    draw.text((xtick3 + xoff, ytick3 + yoff), "%d:00"%phour, TIME_COLOR)
+                pass
+
+    # draw azimuth angles around circle
+    for az_deg in range(0, 360, 10):
+        xtick = xc - int(sin(radians(az_deg)) * (radius - 2))
+        ytick = yc + int(cos(radians(az_deg)) * (radius - 2))
+        xtick2 = xc - int(sin(radians(az_deg)) * (radius + 2))
+        ytick2 = yc + int(cos(radians(az_deg)) * (radius + 2))
+        draw.line((xtick, ytick, xtick2, ytick2), "black", width=1)
+
+        xoff, yoff = polar_text_offsets(az_deg)
+        label = "%d%s"%(az_deg, DEGREE_SYMBOL)
+        if az_deg == 0:
+            label = label + " - N"
+        elif az_deg == 90:
+            label = "E\n" + label
+            yoff -= 12
+        elif az_deg == 180:
+            label = label + " - S"
+        elif az_deg == 270:
+            label = "W\n" + label
+
+        draw.text((xtick2 + xoff, ytick2 + yoff), label, "black")
+
+    # Draw the title and other facts
+    ttext = "Solar-lat twilight polar day view - altitude and azimuth of sun at time in GMT"
+    draw.text((W / 2, 2),
+              ttext,
+              "black",
+              anchor="ma")
+
+    draw_titles(draw, W,
+                "Solar-lat twilight polar day view",
+                "Altitude of sun. Colors indicate height of sun above or below horizon",
+                "Observer on prime meridian at latitude: %0.1f, Date: %s, Day of year: %d"
+                % (o_lat_deg, get_date_of_doy(day), day))
 
     # Optionally save the image
     if options.filename is not None:
@@ -709,49 +802,18 @@ def main_show_a_day_cartesian(options):
     draw.line((l_margin, y, l_margin + h_points, y), "green", width=1)
 
     # Draw the title and other facts
-    title_y1 = 2
-    title_y2 = title_y1 + (1 * 12)
-    title_y3 = title_y1 + (2 * 12)
-
     ttext = "Solar-lat twilight day view - altitude of sun vs. GMT"
-    draw.text(((l_margin + h_points + r_margin) / 2, title_y1),
+    draw.text(((l_margin + h_points + r_margin) / 2, 2),
               ttext,
               "black",
               anchor="ma")
 
-    draw.text((2, title_y1),
-              "Solar-lat twilight day view",
-              "black")
-    draw.text((2, title_y2),
-              "Altitude of sun. Colors indicate height of sun above or below horizon",
-              "black")
-    draw.text((2, title_y3),
-              "Observer on prime meridian at latitude: %0.1f, Date: %s, Day of year: %d" %
-              (o_lat_deg, get_date_of_doy(day), day),
-              "black")
-
-    # Draw source facts
-    source_info_x = W - 230
-    source_info_x2 = W - 190
-    draw.text((source_info_x, title_y1),
-              "project:",
-              "black")
-    draw.text((source_info_x2, title_y1),
-              "https://github.com/ChugR/solar-lat",
-              "black")
-    draw.text((source_info_x, title_y2),
-              "file:",
-              "black")
-    draw.text((source_info_x2, title_y2),
-              "twilight.py",
-              "black")
-    draw.text((source_info_x, title_y3),
-              "version:",
-              "black")
-    draw.text((source_info_x2, title_y3),
-              "%s" % TWILIGHT_VERSION,
-              "black")
-
+    draw_titles(draw, W,
+                "Solar-lat twilight day view",
+                "Altitude of sun. Colors indicate height of sun above or below horizon",
+                "Observer on prime meridian at latitude: %0.1f, Date: %s, Day of year: %d" %
+                (o_lat_deg, get_date_of_doy(day), day)
+                )
 
     # draw fancy legend box right "lbr"
     # the 0,0 for lbr is the upper right corner of the main drawing
