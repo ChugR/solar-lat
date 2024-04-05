@@ -5,7 +5,11 @@ This project holds work from some recreational twilight studies. My original que
  * Why is early twilight happening at 3:00 a.m.?
  * Which twilight am I seeing: is it civil, nautical, or astronomical twilight?
 
-This project instantiates a model of the earth and sun that answers my questions and shows why morning and evening twilights are what they are. 
+This project instantiates a model of the earth and sun that answers my questions and shows why morning and evening twilights are what they are.
+
+File twilight.py generates pictures of day/night/twilight patterns for observers at various latitudes.
+
+Files research-xxx.py explore twilight patterns programatically.
 
 # twilight.py Views
 
@@ -119,3 +123,24 @@ Algorithms/implementations: Taiping Zhang, Paul W. Stackhouse Jr., Bradley Macph
 
 > python twilight.py --show-day --date 2024.01.05
 
+## research-twilight-vs-latitude.py
+
+This code explores minutes of day/twilight/night for a year
+
+In 1997 on a trip to Iceland at 66° north latitude one of the guides boasted:
+"We have the most twilight of anywhere on earth." Hmmm, I thought. That's quite the claim.
+Well, do they?
+
+Spoiler: yes, they do if you count only civil twilight. Folks at 83° north and south
+have more astronomical and more total twilight by a small margin. See a chart in
+/images/twilight-vs-latitude.pdf for a picture.
+
+Flip side: Who has the least twilight? That honor falls to folks on the equator.
+If you've ever been there you might notice that the transition from sunset to
+astronomical twilight, total darkness, is only 75 minutes. Be sure to take a
+flashlight if you plan to be out in the evening.
+
+Observation: What is up with the odd double peaks in the nautical and astronomical
+twilight plots at the polar latitudes?
+
+![Example twilight-vs-latitude plot](images/twilight-vs-latitude.pdf "Day/Twilight/Night durations vs. observer latitude")
