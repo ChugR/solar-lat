@@ -27,6 +27,18 @@ A legend describes the plot colors.
 
 ![Example day-view plot](images/twilight_day_69_lat-43.png "Twilight day-view from 42.6 degrees north")
 
+### Day view videos
+
+These videos select a few observer latitudes and render 365 day view pictures for each. Then the pictures are sourced to create videos.
+
+#### Day view video at the equator 0.0° latitide
+
+[Video](https://youtu.be/0aChZHzQb2w) showing every day-view for an observer on the equator.
+
+#### Day view video at 42° N latitide
+
+[Video](https://youtu.be/_wDuHEbbcrg) showing every day-view for an observer on 42° N latitide.
+
 ## Year view
 
 Year view shows a plot where the x-axis is time of day and the y-axis is the day of the year. The elevation of the sun is implied by the colors of the graph at each point.
@@ -38,6 +50,10 @@ A year view is essentially 365 day views where the colors of each day view are o
 > python twilight.py -o 42.6
 
 ![Example year-view plot](images/twilight_year_lat-43.png "Twilight year-view from 42.6 degrees north")
+
+### Year view video
+
+[Video](https://youtu.be/fvUaUbjAghE) showing every year-view for observers from the south pole (-90°) to the equator (0°) and on to the north pole (+90°).
 
 ## Polar day view
 
@@ -61,6 +77,14 @@ This view satisfies some of my research goals.
 > python twilight.py --date 2019.06.21 --show-day --polar
 
 ![Example day-view --polar plot](images/twilight_day_171_lat-42.6_polar.png "Twilight --polar day-view from 42.6 degrees north")
+
+#### Polar day view video at the equator 0.0° latitide
+
+[Video](https://youtu.be/3UIs0npbElM) showing every polar day-view for an observer on the equator. To me this is the most interesting video.
+
+#### Polar day view video at 42° N latitide
+
+[Video](https://youtu.be/3UIs0npbElM) showing every polar day-view for an observer on 42° N latitide.
 
 # Installation
 
