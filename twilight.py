@@ -600,7 +600,7 @@ def main_show_a_day_polar(options):
 
     l_margin = 50
     r_margin = 50
-    t_margin = 75
+    t_margin = 76
     b_margin = 20
     radius = 450
     W = l_margin + radius * 2 + r_margin
