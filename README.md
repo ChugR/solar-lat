@@ -19,6 +19,27 @@ By far the tropical and arctic/antarctic latitudes have the most interesting twi
 
 Enjoy!
 
+# Table of Contents
+
+- [twilight.py Views](https://github.com/ChugR/solar-lat?tab=readme-ov-file#twilightpy-views)
+  - [Day view](https://github.com/ChugR/solar-lat?tab=readme-ov-file#day-view)
+    - [Example day-view](https://github.com/ChugR/solar-lat?tab=readme-ov-file#example-day-view)
+    - [Day-view animations](https://github.com/ChugR/solar-lat?tab=readme-ov-file#day-view-animations)
+  - [Year view](https://github.com/ChugR/solar-lat?tab=readme-ov-file#year-view)
+    - [Example year-view](https://github.com/ChugR/solar-lat?tab=readme-ov-file#example-year-view)
+    - [Year-view animation](https://github.com/ChugR/solar-lat?tab=readme-ov-file#year-view-animation)
+  - [Polar day-view](https://github.com/ChugR/solar-lat?tab=readme-ov-file#polar-day-view)
+    - [Example polar day-view](https://github.com/ChugR/solar-lat?tab=readme-ov-file#example-polar-day-view)
+    - [Polar day-view animations](https://github.com/ChugR/solar-lat?tab=readme-ov-file#polar-day-view-animations)
+- [Installation](https://github.com/ChugR/solar-lat?tab=readme-ov-file#installation)
+- [Files](https://github.com/ChugR/solar-lat?tab=readme-ov-file#files)
+  - [twilight.py](https://github.com/ChugR/solar-lat?tab=readme-ov-file#twilightpy)
+    - [twilight.py command line switches](https://github.com/ChugR/solar-lat?tab=readme-ov-file#twilightpy-command-line-switches)
+    - [Notes](https://github.com/ChugR/solar-lat?tab=readme-ov-file#notes)
+  - [SG_sunpos_ultimate_azi_atan2.py](https://github.com/ChugR/solar-lat?tab=readme-ov-file#sg_sunpos_ultimate_azi_atan2py)
+- [Research](https://github.com/ChugR/solar-lat?tab=readme-ov-file#research)
+  - [research-twilight-vs-latitude.py](https://github.com/ChugR/solar-lat?tab=readme-ov-file#research-twilight-vs-latitudepy)
+  
 # twilight.py Views
 
 ## Day view
@@ -88,7 +109,7 @@ This view satisfies some of my research goals.
 
 #### Polar day-view animation at the equator 0° latitide
 
-[Video](https://youtu.be/3UIs0npbElM) showing every polar day-view for an observer on the equator. To me this is the most interesting video.
+[Video](https://youtu.be/P2Oif4a1mqY) showing every polar day-view for an observer on the equator. To me this is the most interesting animation.
 
 #### Polar day-view animation at 42° N latitide
 
