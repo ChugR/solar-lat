@@ -39,7 +39,7 @@ Enjoy!
   - [SG_sunpos_ultimate_azi_atan2.py](https://github.com/ChugR/solar-lat?tab=readme-ov-file#sg_sunpos_ultimate_azi_atan2py)
 - [Research](https://github.com/ChugR/solar-lat?tab=readme-ov-file#research)
   - [research-twilight-vs-latitude.py](https://github.com/ChugR/solar-lat?tab=readme-ov-file#research-twilight-vs-latitudepy)
-  
+  - [animations animation-generator.py](https://github.com/ChugR/solar-lat?tab=readme-ov-file#animations-animation-generator.py)
 # twilight.py Views
 
 ## Day view
@@ -176,12 +176,16 @@ Algorithms/implementations: Taiping Zhang, Paul W. Stackhouse Jr., Bradley Macph
 
 > python twilight.py --show-day --date 2024.01.05
 
+# Research
+
+Some code pieces explore specific facts or relationships with respect to twilight. Here are a few.
+
 ## research-twilight-vs-latitude.py
 
 This code explores minutes of day/twilight/night for a year
 
 In 1997 on a trip to Iceland at 66° north latitude one of the guides boasted:
-"We have the most twilight of anywhere on earth." Hmmm, I thought. That's quite the claim.
+"We have the most twilight of anywhere on earth!" Hmmm, I thought. That's quite the claim.
 Well, do they?
 
 Spoiler: yes, they do if you count only civil twilight. Folks at 83° north and south
@@ -190,10 +194,16 @@ have more astronomical and more total twilight by a small margin. See a chart in
 
 Flip side: Who has the least twilight? That honor falls to folks on the equator.
 If you've ever been there you might notice that the transition from sunset to
-astronomical twilight, total darkness, is only 75 minutes. Be sure to take a
-flashlight if you plan to be out in the evening.
+astronomical twilight, total darkness, is only 75 minutes. It goes from day to
+night really quickly. Be sure to take a flashlight if you plan to be out in the evening.
 
 Observation: What is up with the odd double peaks in the nautical and astronomical
 twilight plots at the polar latitudes?
 
 ![Example twilight-vs-latitude plot](images/twilight-vs-latitude.pdf "Day/Twilight/Night durations vs. observer latitude")
+
+## animations animation-generator.py
+
+This code generates several mp4 video files from series of png images.
+
+This code requires that ffmpeg v6.0.1 is available.
