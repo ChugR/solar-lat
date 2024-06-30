@@ -154,7 +154,7 @@ This is the main program. It has view generators for an observer at some point o
 * Regardless of the year specified by *--date YYYY.MM.DD* this code shows plots for the year 2019 thereby using dates aligned with the programmed ephemeris.
 * This code is not organized to help observers in the southern hemisphere. TODO: Add a polar view feature that shows "south counterclockwise positive" azimuth angles.
 
-## SG_sunpos_ultimate_azi_atan2.ph
+## SG_sunpos_ultimate_azi_atan2.py
 
 An advanced solar geometry calculator. This function finds the subsolar point for any time and date using 2019 ephemeris data.
 
